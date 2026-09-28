@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VANTARA EDITOR</title>
+<title>VANTARA EDITOR V2</title>
 <link rel="stylesheet" href="style.css">
 </head>
 
@@ -12,53 +12,258 @@
 <header>
   <div class="brand">
     <div class="logo">V</div>
+
     <div>
       <b>VANTARA EDITOR</b>
       <small>Voiceover • Audio • Creator Studio</small>
     </div>
   </div>
-  <span>V1</span>
+
+  <div class="header-actions">
+    <span class="version">V2</span>
+    <button id="themeBtn" class="icon-btn">☾</button>
+  </div>
 </header>
+
 
 <main>
 
+<!-- ================= HERO ================= -->
+
 <section class="hero">
+
   <small>VANTARA EDUCATION</small>
-  <h1>Your classroom content studio.</h1>
-  <p>Create teacher-style voiceovers, combine audio files, and prepare lesson audio from one dashboard.</p>
+
+  <h1>Your Educational Content Studio.</h1>
+
+  <p>
+    Create classroom voiceovers, build lessons, edit audio,
+    manage projects and prepare educational content from one dashboard.
+  </p>
+
 </section>
 
-<nav>
-  <button class="tab active" data-tab="voiceover">🎙️ Voiceover Studio</button>
-  <button class="tab" data-tab="merge">🎧 Audio Merge</button>
-  <button class="tab" data-tab="effect">🔊 Male Voice Effect</button>
+
+<!-- ================= NAVIGATION ================= -->
+
+<nav class="tabs">
+
+  <button class="tab active" data-tab="dashboard">
+    🏠 Dashboard
+  </button>
+
+  <button class="tab" data-tab="voiceover">
+    🎙️ Voiceover Studio
+  </button>
+
+  <button class="tab" data-tab="lesson">
+    📚 Lesson Builder
+  </button>
+
+  <button class="tab" data-tab="audio">
+    🎧 Audio Editor
+  </button>
+
+  <button class="tab" data-tab="video">
+    🎬 Video Creator
+  </button>
+
+  <button class="tab" data-tab="brand">
+    🏫 Brand Kit
+  </button>
+
+  <button class="tab" data-tab="assistant">
+    ✨ Script Assistant
+  </button>
+
+  <button class="tab" data-tab="library">
+    📂 Project Library
+  </button>
+
 </nav>
 
-<section id="voiceover" class="panel active">
-  <h2>Voiceover Studio</h2>
-  <p>Generate Hindi / Hinglish classroom narration.</p>
 
-  <label>Script</label>
+<!-- ================================================= -->
+<!-- DASHBOARD -->
+<!-- ================================================= -->
 
-  <!-- Unlimited text input: no maxlength -->
+<section id="dashboard" class="panel active">
+
+  <div class="section-head">
+
+    <div>
+      <h2>My Workspace</h2>
+
+      <p>
+        Manage your VANTARA educational projects from one place.
+      </p>
+    </div>
+
+    <button id="newProject" class="primary">
+      ＋ New Project
+    </button>
+
+  </div>
+
+
+  <div class="dashboard-grid">
+
+    <div class="dashboard-card">
+      <span>🎙️</span>
+      <h3>Voiceover Studio</h3>
+      <p>Create teacher-style classroom narration.</p>
+
+      <button
+        onclick="document.querySelector('[data-tab=voiceover]').click()">
+        Open Studio →
+      </button>
+    </div>
+
+
+    <div class="dashboard-card">
+
+      <span>📚</span>
+
+      <h3>Lesson Builder</h3>
+
+      <p>
+        Create slide-by-slide educational lessons.
+      </p>
+
+      <button
+        onclick="document.querySelector('[data-tab=lesson]').click()">
+        Build Lesson →
+      </button>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+      <span>🎧</span>
+
+      <h3>Audio Editor</h3>
+
+      <p>
+        Process and prepare lesson audio.
+      </p>
+
+      <button
+        onclick="document.querySelector('[data-tab=audio]').click()">
+        Edit Audio →
+      </button>
+
+    </div>
+
+
+    <div class="dashboard-card">
+
+      <span>🎬</span>
+
+      <h3>Video Creator</h3>
+
+      <p>
+        Prepare educational videos from lessons.
+      </p>
+
+      <button
+        onclick="document.querySelector('[data-tab=video]').click()">
+        Open Creator →
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <h2 class="workspace-title">
+    Recent Projects
+  </h2>
+
+  <div id="projectList" class="project-grid"></div>
+
+</section>
+
+
+
+<!-- ================================================= -->
+<!-- VOICEOVER STUDIO -->
+<!-- ================================================= -->
+
+<section id="voiceover" class="panel">
+
+  <div class="section-head">
+
+    <div>
+
+      <h2>🎙️ Voiceover Studio</h2>
+
+      <p>
+        Generate complete classroom narration from your script.
+      </p>
+
+    </div>
+
+  </div>
+
+
+  <label>Project Name</label>
+
+  <input
+    id="projectName"
+    placeholder="Example: Class 8 Science - Force"
+  >
+
+
+  <label>Teacher Script</label>
+
   <textarea
     id="script"
-    placeholder="Paste your teacher script here..."
+    placeholder="Paste your complete teacher script here..."
   ></textarea>
+
+
+  <div class="meta">
+
+    <span id="charCount">
+      0 characters
+    </span>
+
+    <span>
+      Unlimited script box
+    </span>
+
+  </div>
+
 
   <div class="grid">
 
-    <div>
-      <label>Language</label>
-      <select id="language">
-        <option value="hi-IN">Hindi / Hinglish</option>
-        <option value="en-IN">English (Indian)</option>
-      </select>
-    </div>
 
     <div>
-      <label>Teacher voice</label>
+
+      <label>Language</label>
+
+      <select id="language">
+
+        <option value="hi-IN">
+          Hindi / Hinglish
+        </option>
+
+        <option value="en-IN">
+          English (Indian)
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div>
+
+      <label>Teacher Voice</label>
+
       <select id="speaker">
+
         <option value="shubh">Shubh</option>
         <option value="aditya">Aditya</option>
         <option value="rahul">Rahul</option>
@@ -74,91 +279,633 @@
         <option value="mohit">Mohit</option>
         <option value="rehan">Rehan</option>
         <option value="soham">Soham</option>
+
       </select>
+
     </div>
 
+
     <div>
-      <label>Speed</label>
+
+      <label>Speaking Speed</label>
+
       <select id="pace">
-        <option value=".9">Slow classroom</option>
-        <option value="1" selected>Normal classroom</option>
-        <option value="1.1">Slightly fast</option>
+
+        <option value=".9">
+          Slow Classroom
+        </option>
+
+        <option value="1" selected>
+          Normal Classroom
+        </option>
+
+        <option value="1.1">
+          Slightly Fast
+        </option>
+
       </select>
+
     </div>
 
   </div>
 
+
   <button id="generate" class="primary">
-    Generate Voiceover
+    🎙️ Generate Complete Voiceover
   </button>
+
 
   <div id="voiceStatus" class="status"></div>
 
-  <audio id="voiceAudio" controls hidden></audio>
 
-  <a id="voiceDownload" class="download" hidden>
-    Download voiceover
+  <audio
+    id="voiceAudio"
+    controls
+    hidden>
+  </audio>
+
+
+  <a
+    id="voiceDownload"
+    class="download"
+    hidden>
+    Download Voiceover
   </a>
+
+
+  <div id="chunkLog" class="log"></div>
 
 </section>
 
-<section id="merge" class="panel">
-  <h2>Audio Merge</h2>
-  <p>Select slide audio files in the order you want them.</p>
 
-  <input id="mergeFiles" type="file" accept="audio/*" multiple>
 
-  <div id="mergeList"></div>
+<!-- ================================================= -->
+<!-- LESSON BUILDER -->
+<!-- ================================================= -->
 
-  <button id="mergeBtn" class="primary">
-    Merge Audio
+<section id="lesson" class="panel">
+
+  <div class="section-head">
+
+    <div>
+
+      <h2>📚 Lesson Builder</h2>
+
+      <p>
+        Build a complete lesson slide-by-slide.
+      </p>
+
+    </div>
+
+
+    <div>
+
+      <button id="addSlide">
+        ＋ Add Slide
+      </button>
+
+      <button id="clearSlides">
+        Clear
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <div class="lesson-options">
+
+    <div>
+
+      <label>Lesson Name</label>
+
+      <input
+        id="lessonName"
+        placeholder="Example: Number Theory - Chapter 1"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>Lesson Type</label>
+
+      <select id="lessonType">
+
+        <option>
+          Classroom Lesson
+        </option>
+
+        <option>
+          Olympiad Class
+        </option>
+
+        <option>
+          Revision Class
+        </option>
+
+        <option>
+          Concept Explanation
+        </option>
+
+        <option>
+          Practice Session
+        </option>
+
+      </select>
+
+    </div>
+
+  </div>
+
+
+  <div id="slides"></div>
+
+
+  <button
+    id="generateLesson"
+    class="primary">
+    🎙️ Generate Full Lesson Audio
   </button>
 
-  <div id="mergeStatus" class="status"></div>
 
-  <a id="mergeDownload" class="download" hidden>
-    Download merged audio
+  <div id="lessonStatus" class="status"></div>
+
+
+  <audio
+    id="lessonAudio"
+    controls
+    hidden>
+  </audio>
+
+
+  <a
+    id="lessonDownload"
+    class="download"
+    hidden>
+    Download Complete Lesson
   </a>
+
 </section>
 
-<section id="effect" class="panel">
-  <h2>Male Voice Effect</h2>
-  <p>This is a simple local pitch-down effect, not true AI voice conversion.</p>
 
-  <input id="effectFile" type="file" accept="audio/*">
 
-  <label>Pitch</label>
+<!-- ================================================= -->
+<!-- AUDIO EDITOR -->
+<!-- ================================================= -->
+
+<section id="audio" class="panel">
+
+  <h2>🎧 Professional Audio Editor</h2>
+
+  <p>
+    Process your classroom audio before publishing.
+  </p>
+
+
+  <label>Select Audio</label>
 
   <input
-    id="pitch"
-    type="range"
-    min=".72"
-    max="1"
-    step=".01"
-    value=".82"
+    id="audioFile"
+    type="file"
+    accept="audio/*"
   >
 
-  <span id="pitchValue">0.82×</span>
 
-  <button id="effectBtn" class="primary">
-    Create Male Voice Effect
+  <div class="grid">
+
+
+    <div>
+
+      <label>Volume</label>
+
+      <input
+        id="volume"
+        type="range"
+        min="0"
+        max="2"
+        step=".01"
+        value="1"
+      >
+
+      <span id="volumeValue">
+        100%
+      </span>
+
+    </div>
+
+
+    <div>
+
+      <label>Fade In</label>
+
+      <input
+        id="fadeIn"
+        type="number"
+        min="0"
+        max="20"
+        step=".1"
+        value="0"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>Fade Out</label>
+
+      <input
+        id="fadeOut"
+        type="number"
+        min="0"
+        max="20"
+        step=".1"
+        value="0"
+      >
+
+    </div>
+
+  </div>
+
+
+  <audio
+    id="audioPreview"
+    controls
+    hidden>
+  </audio>
+
+
+  <button
+    id="processAudio"
+    class="primary">
+    🎧 Process & Export Audio
   </button>
 
-  <div id="effectStatus" class="status"></div>
 
-  <audio id="effectAudio" controls hidden></audio>
+  <div id="audioStatus" class="status"></div>
 
-  <a id="effectDownload" class="download" hidden>
-    Download effect audio
+
+  <a
+    id="audioDownload"
+    class="download"
+    hidden>
+    Download Processed Audio
   </a>
+
+</section>
+
+
+
+<!-- ================================================= -->
+<!-- VIDEO CREATOR -->
+<!-- ================================================= -->
+
+<section id="video" class="panel">
+
+  <h2>🎬 VANTARA Video Creator</h2>
+
+  <p>
+    Prepare educational video projects from your lesson material.
+  </p>
+
+
+  <div class="feature-grid">
+
+
+    <div class="feature-card">
+
+      <span>📊</span>
+
+      <h3>PPT → Video</h3>
+
+      <p>
+        Convert lesson slides into a video workflow.
+      </p>
+
+      <button>
+        Coming Soon
+      </button>
+
+    </div>
+
+
+    <div class="feature-card">
+
+      <span>🎙️</span>
+
+      <h3>Voice + Slides</h3>
+
+      <p>
+        Combine narration with educational slides.
+      </p>
+
+      <button>
+        Coming Soon
+      </button>
+
+    </div>
+
+
+    <div class="feature-card">
+
+      <span>📱</span>
+
+      <h3>Short Video</h3>
+
+      <p>
+        Prepare content for vertical educational videos.
+      </p>
+
+      <button>
+        Coming Soon
+      </button>
+
+    </div>
+
+
+    <div class="feature-card">
+
+      <span>🏫</span>
+
+      <h3>VANTARA Branding</h3>
+
+      <p>
+        Add institute branding to your future exports.
+      </p>
+
+      <button>
+        Coming Soon
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <div class="coming-soon">
+
+    <h3>🚧 Video Creator is under development</h3>
+
+    <p>
+      The future version will combine PPT/PDF,
+      voiceover, branding and educational content
+      into a complete lesson video.
+    </p>
+
+  </div>
+
+</section>
+
+
+
+<!-- ================================================= -->
+<!-- BRAND KIT -->
+<!-- ================================================= -->
+
+<section id="brand" class="panel">
+
+  <h2>🏫 VANTARA Brand Kit</h2>
+
+  <p>
+    Save your institute's standard information for future exports.
+  </p>
+
+
+  <div class="grid">
+
+
+    <div>
+
+      <label>Institute Name</label>
+
+      <input
+        id="brandName"
+        value="VANTARA EDUCATION"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>Website</label>
+
+      <input
+        id="brandWebsite"
+        placeholder="https://..."
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>Teacher / Mentor</label>
+
+      <input
+        id="brandTeacher"
+        placeholder="Mr. Rajesh Mehra"
+      >
+
+    </div>
+
+
+    <div>
+
+      <label>Footer Text</label>
+
+      <input
+        id="brandFooter"
+        value="VANTARA EDUCATION • THINK. SOLVE. EXPLORE. EXCEL."
+      >
+
+    </div>
+
+  </div>
+
+
+  <button
+    id="saveBrand"
+    class="primary">
+    💾 Save Brand Kit
+  </button>
+
+
+  <div
+    id="brandStatus"
+    class="status">
+  </div>
+
+</section>
+
+
+
+<!-- ================================================= -->
+<!-- SCRIPT ASSISTANT -->
+<!-- ================================================= -->
+
+<section id="assistant" class="panel">
+
+  <h2>✨ Script Assistant</h2>
+
+  <p>
+    Prepare classroom-friendly scripts before sending them
+    to Voiceover Studio.
+  </p>
+
+
+  <textarea
+    id="assistantInput"
+    placeholder="Paste your script here..."
+  ></textarea>
+
+
+  <div class="assistant-actions">
+
+
+    <button data-action="simple">
+      Make Simpler
+    </button>
+
+
+    <button data-action="classroom">
+      Teacher Style
+    </button>
+
+
+    <button data-action="hinglish">
+      Hinglish Style
+    </button>
+
+
+    <button data-action="short">
+      Shorten
+    </button>
+
+
+    <button data-action="pause">
+      Add Pauses
+    </button>
+
+  </div>
+
+
+  <label>
+    Result
+  </label>
+
+
+  <textarea
+    id="assistantOutput"
+    placeholder="Your improved script will appear here..."
+  ></textarea>
+
+
+  <button
+    id="useAssistant"
+    class="primary">
+    Use Result in Voiceover Studio
+  </button>
+
+</section>
+
+
+
+<!-- ================================================= -->
+<!-- PROJECT LIBRARY -->
+<!-- ================================================= -->
+
+<section id="library" class="panel">
+
+  <h2>📂 Project Library</h2>
+
+  <p>
+    Your saved projects will appear here.
+  </p>
+
+
+  <div class="library-grid">
+
+
+    <div class="feature-card">
+
+      <span>📁</span>
+
+      <h3>Voiceover Projects</h3>
+
+      <p>
+        Store and manage your generated lesson narration.
+      </p>
+
+    </div>
+
+
+    <div class="feature-card">
+
+      <span>📚</span>
+
+      <h3>Lessons</h3>
+
+      <p>
+        Organize slide-by-slide educational lessons.
+      </p>
+
+    </div>
+
+
+    <div class="feature-card">
+
+      <span>🎧</span>
+
+      <h3>Audio</h3>
+
+      <p>
+        Keep your processed classroom audio.
+      </p>
+
+    </div>
+
+
+    <div class="feature-card">
+
+      <span>🎬</span>
+
+      <h3>Videos</h3>
+
+      <p>
+        Future educational video exports.
+      </p>
+
+    </div>
+
+  </div>
+
+
+  <div class="coming-soon">
+
+    <h3>📦 Local Project Storage</h3>
+
+    <p>
+      V2 projects are currently stored in your browser.
+      Cloud storage and account-based libraries can be
+      added in a future version.
+    </p>
+
+  </div>
 
 </section>
 
 </main>
 
+
 <footer>
-  VANTARA EDUCATION • VANTARA EDITOR
+
+  VANTARA EDUCATION • VANTARA EDITOR V2
+
 </footer>
+
 
 <script src="app.js"></script>
 
