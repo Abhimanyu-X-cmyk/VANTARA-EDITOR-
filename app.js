@@ -548,29 +548,17 @@ if (
 
 }
 /* =========================================================
+   /* =========================================================
    VANTARA EDITOR V2
-   PART 1B
-   VOICEOVER ENGINE
-========================================================= */
-
-
-/* =========================================================
-   LANGUAGE
+   PART 1B — FIXED SPEECH SYNTHESIS
 ========================================================= */
 
 function getSelectedLanguage() {
 
-  return (
-    $("language")?.value ||
-    "hi-IN"
-  );
+  return $("language")?.value || "hi-IN";
 
 }
 
-
-/* =========================================================
-   SPEED
-========================================================= */
 
 function getSelectedPace() {
 
@@ -581,13 +569,81 @@ function getSelectedPace() {
 }
 
 
-/* =========================================================
-   SELECTED VOICE
-========================================================= */
-
 function getSelectedVoice() {
 
-  return selectedBrowserVoice;
+  const select =
+    $("speaker");
+
+  if (!select) return null;
+
+  const voiceName =
+    select.value;
+
+  return availableVoices.find(
+    voice =>
+      voice.name === voiceName
+  ) || null;
+
+}
+
+
+/* =========================================================
+   WAIT FOR BROWSER VOICES
+========================================================= */
+
+function waitForVoices(timeout = 3000) {
+
+  return new Promise(
+    resolve => {
+
+      const synth =
+        window.speechSynthesis;
+
+      const existing =
+        synth.getVoices();
+
+      if (existing.length > 0) {
+
+        resolve(existing);
+        return;
+
+      }
+
+
+      let finished = false;
+
+
+      const finish = () => {
+
+        if (finished) return;
+
+        finished = true;
+
+        synth.removeEventListener(
+          "voiceschanged",
+          finish
+        );
+
+        resolve(
+          synth.getVoices()
+        );
+
+      };
+
+
+      synth.addEventListener(
+        "voiceschanged",
+        finish
+      );
+
+
+      setTimeout(
+        finish,
+        timeout
+      );
+
+    }
+  );
 
 }
 
@@ -596,12 +652,21 @@ function getSelectedVoice() {
    SPEAK TEXT
 ========================================================= */
 
-function speakText(
-  text
-) {
+function speakText(text) {
 
   return new Promise(
-    (resolve, reject) => {
+    async (resolve, reject) => {
+
+      if (
+        !text ||
+        !text.trim()
+      ) {
+
+        resolve();
+        return;
+
+      }
+
 
       if (
         !("speechSynthesis" in window)
@@ -617,102 +682,239 @@ function speakText(
 
       }
 
-      if (
-        !text ||
-        !text.trim()
-      ) {
 
-        resolve();
+      try {
 
-        return;
+        /*
+          Make sure browser voices
+          have loaded first.
+        */
 
-      }
-
-
-      window.speechSynthesis
-        .cancel();
+        await waitForVoices();
 
 
-      const utterance =
-        new SpeechSynthesisUtterance(
-          text
+        const synth =
+          window.speechSynthesis;
+
+
+        /*
+          Cancel any previous
+          unfinished speech.
+        */
+
+        synth.cancel();
+
+
+        /*
+          Small delay helps some
+          Android browsers restart
+          speech synthesis correctly.
+        */
+
+        await new Promise(
+          r =>
+            setTimeout(
+              r,
+              100
+            )
         );
 
 
-      /* Language */
-
-      utterance.lang =
-        getSelectedLanguage();
-
-
-      /* Speed */
-
-      utterance.rate =
-        getSelectedPace();
+        const utterance =
+          new SpeechSynthesisUtterance(
+            text
+          );
 
 
-      /* Pitch */
-
-      utterance.pitch =
-        1;
+        utterance.lang =
+          getSelectedLanguage();
 
 
-      /* Selected browser voice */
+        utterance.rate =
+          getSelectedPace();
 
-      const voice =
-        getSelectedVoice();
 
-      if (voice) {
+        utterance.pitch =
+          1;
 
-        utterance.voice =
-          voice;
+
+        utterance.volume =
+          1;
+
+
+        const selectedVoice =
+          getSelectedVoice();
+
 
         /*
-          Use the actual voice language
-          when available.
+          Only assign a voice if
+          it actually exists.
         */
 
-        if (
-          voice.lang
-        ) {
+        if (selectedVoice) {
+
+          utterance.voice =
+            selectedVoice;
+
+          /*
+            Keep language aligned
+            with selected language.
+          */
 
           utterance.lang =
-            voice.lang;
+            selectedVoice.lang ||
+            getSelectedLanguage();
 
         }
 
-      }
+
+        let started = false;
 
 
-      /* Completed */
+        utterance.onstart =
+          () => {
 
-      utterance.onend =
-        () => {
+            started = true;
 
-          resolve();
-
-        };
+          };
 
 
-      /* Error */
+        utterance.onend =
+          () => {
 
-      utterance.onerror =
-        (event) => {
+            resolve();
 
-          reject(
-            new Error(
-              event.error ||
-              "Voice playback failed."
-            )
-          );
-
-        };
+          };
 
 
-      window.speechSynthesis
-        .speak(
+        utterance.onerror =
+          event => {
+
+            /*
+              "interrupted" and
+              "canceled" are usually
+              caused by another speech
+              request, so report them
+              clearly.
+            */
+
+            if (
+              event.error ===
+                "canceled" ||
+              event.error ===
+                "interrupted"
+            ) {
+
+              resolve();
+
+              return;
+
+            }
+
+
+            reject(
+              new Error(
+                `Speech synthesis failed: ${
+                  event.error || "unknown error"
+                }`
+              )
+            );
+
+          };
+
+
+        /*
+          Android Chrome sometimes
+          needs speechSynthesis.resume()
+          before speaking.
+        */
+
+        synth.resume();
+
+
+        synth.speak(
           utterance
         );
+
+
+        /*
+          Safety check.
+          If speech never starts,
+          retry once without a
+          manually selected voice.
+        */
+
+        setTimeout(
+          () => {
+
+            if (
+              !started &&
+              !synth.speaking
+            ) {
+
+              synth.cancel();
+
+
+              const retry =
+                new SpeechSynthesisUtterance(
+                  text
+                );
+
+
+              retry.lang =
+                getSelectedLanguage();
+
+
+              retry.rate =
+                getSelectedPace();
+
+
+              retry.pitch =
+                1;
+
+
+              retry.volume =
+                1;
+
+
+              retry.onend =
+                () => resolve();
+
+
+              retry.onerror =
+                event => {
+
+                  reject(
+                    new Error(
+                      `Speech synthesis failed: ${
+                        event.error || "unknown error"
+                      }`
+                    )
+                  );
+
+                };
+
+
+              synth.resume();
+
+
+              synth.speak(
+                retry
+              );
+
+            }
+
+          },
+          700
+        );
+
+      } catch (error) {
+
+        reject(
+          error
+        );
+
+      }
 
     }
   );
@@ -721,43 +923,38 @@ function speakText(
 
 
 /* =========================================================
-   SCRIPT COUNTER
+   SCRIPT CHARACTER COUNTER
 ========================================================= */
 
-const scriptBox =
-  $("script");
+$("script")?.addEventListener(
+  "input",
+  () => {
 
-const scriptCount =
-  $("count");
+    const text =
+      $("script").value || "";
 
 
-function updateScriptCount() {
+    if ($("charCount")) {
 
-  if (
-    !scriptBox ||
-    !scriptCount
-  ) {
+      $("charCount").textContent =
+        `${text.length} characters`;
 
-    return;
+    }
+
+
+    if ($("count")) {
+
+      $("count").textContent =
+        `${text.length} characters`;
+
+    }
 
   }
-
-  scriptCount.textContent =
-    `${scriptBox.value.length} characters`;
-
-}
-
-
-scriptBox?.addEventListener(
-  "input",
-  updateScriptCount
 );
-
-updateScriptCount();
 
 
 /* =========================================================
-   UNLIMITED SCRIPT CHUNKING
+   SPLIT LONG SCRIPT
 ========================================================= */
 
 function splitText(
@@ -765,58 +962,57 @@ function splitText(
   maxLength = 1800
 ) {
 
-  const cleanText =
-    text
-      .replace(/\s+/g, " ")
-      .trim();
+  const clean =
+    text.trim();
 
-  if (!cleanText) {
+
+  if (!clean) {
+
     return [];
+
   }
 
 
   const words =
-    cleanText.split(" ");
+    clean.split(
+      /\s+/
+    );
+
 
   const chunks = [];
 
-  let current =
-    "";
+  let current = "";
 
 
-  words.forEach(
-    (word) => {
+  for (
+    const word of words
+  ) {
 
-      if (
-        (
-          current.length +
-          word.length +
-          1
-        ) <= maxLength
-      ) {
+    if (
+      (current + " " + word)
+        .trim()
+        .length <= maxLength
+    ) {
 
-        current +=
+      current =
+        `${current} ${word}`.trim();
+
+    } else {
+
+      if (current) {
+
+        chunks.push(
           current
-            ? " " + word
-            : word;
-
-      } else {
-
-        if (current) {
-
-          chunks.push(
-            current
-          );
-
-        }
-
-        current =
-          word;
+        );
 
       }
 
+      current =
+        word;
+
     }
-  );
+
+  }
 
 
   if (current) {
@@ -841,20 +1037,14 @@ function displayChunks(
   chunks
 ) {
 
-  const log =
+  const container =
     $("chunkLog");
 
-  if (!log) return;
 
-  log.innerHTML = "";
+  if (!container) return;
 
-  if (
-    chunks.length === 0
-  ) {
 
-    return;
-
-  }
+  container.innerHTML = "";
 
 
   chunks.forEach(
@@ -868,13 +1058,16 @@ function displayChunks(
           "div"
         );
 
+
       item.className =
         "chunk-item";
 
-      item.textContent =
-        `Part ${index + 1}: ${chunk.slice(0, 100)}${chunk.length > 100 ? "..." : ""}`;
 
-      log.appendChild(
+      item.textContent =
+        `Part ${index + 1}: ${chunk.length} characters`;
+
+
+      container.appendChild(
         item
       );
 
@@ -892,12 +1085,12 @@ $("language")?.addEventListener(
   "change",
   () => {
 
-    const language =
-      getSelectedLanguage();
+    updateVoiceList();
+
 
     setStatus(
       "voiceStatus",
-      `Language selected: ${language}`
+      "Language updated. Select a suitable browser voice."
     );
 
   }
@@ -905,19 +1098,16 @@ $("language")?.addEventListener(
 
 
 /* =========================================================
-   SPEED CHANGE
+   PACE CHANGE
 ========================================================= */
 
 $("pace")?.addEventListener(
   "change",
   () => {
 
-    const pace =
-      getSelectedPace();
-
     setStatus(
       "voiceStatus",
-      `Speaking speed: ${pace}×`
+      `Speaking speed set to ${getSelectedPace()}×.`
     );
 
   }
@@ -925,20 +1115,17 @@ $("pace")?.addEventListener(
 
 
 /* =========================================================
-   INITIAL VOICE STATUS
+   INITIAL STATUS
 ========================================================= */
 
-if (
-  $("voiceStatus")
-) {
+if ($("voiceStatus")) {
 
   setStatus(
     "voiceStatus",
-    "Choose a voice and enter your script."
+    "Ready. Enter your script and generate the voiceover."
   );
 
 }
-/* =========================================================
    VANTARA EDITOR V2
    PART 2A
    GENERATE + PREVIEW + STOP
