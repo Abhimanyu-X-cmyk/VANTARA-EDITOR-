@@ -3,22 +3,17 @@
 /* =========================================================
    VANTARA EDITOR V2
    PART 1A
-   CORE SETUP + TABS + THEME + VOICE SYSTEM
+   CORE + TABS + THEME + VOICE SETUP
 ========================================================= */
 
 
 /* =========================================================
-   BASIC SELECTOR
+   BASIC HELPERS
 ========================================================= */
 
-function $(id) {
-  return document.getElementById(id);
-}
+const $ = (id) =>
+  document.getElementById(id);
 
-
-/* =========================================================
-   STATUS MESSAGE
-========================================================= */
 
 function setStatus(
   id,
@@ -26,60 +21,27 @@ function setStatus(
   type = ""
 ) {
 
-  const element = $(id);
+  const el = $(id);
 
-  if (!element) return;
+  if (!el) return;
 
-  element.textContent = message;
+  el.textContent = message;
 
-  element.className =
+  el.className =
     "status " + type;
+
 }
 
-
-/* =========================================================
-   DOWNLOAD HELPER
-========================================================= */
-
-function downloadBlob(
-  blob,
-  filename
-) {
-
-  const url =
-    URL.createObjectURL(blob);
-
-  const link =
-    document.createElement("a");
-
-  link.href = url;
-  link.download = filename;
-
-  document.body.appendChild(link);
-
-  link.click();
-
-  link.remove();
-
-  setTimeout(
-    () => URL.revokeObjectURL(url),
-    1000
-  );
-}
-
-
-/* =========================================================
-   HTML ESCAPE HELPER
-========================================================= */
 
 function escapeHTML(value) {
 
   return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
 }
 
 
@@ -87,48 +49,44 @@ function escapeHTML(value) {
    TAB NAVIGATION
 ========================================================= */
 
-const tabs =
-  document.querySelectorAll(
-    ".tab"
-  );
+document
+  .querySelectorAll(".tab")
+  .forEach(button => {
 
-const panels =
-  document.querySelectorAll(
-    ".panel"
-  );
-
-tabs.forEach(
-  (tab) => {
-
-    tab.addEventListener(
+    button.addEventListener(
       "click",
       () => {
 
         const target =
-          tab.dataset.tab;
+          button.dataset.tab;
 
-        tabs.forEach(
-          item =>
-            item.classList.remove(
+
+        document
+          .querySelectorAll(".tab")
+          .forEach(tab =>
+            tab.classList.remove(
               "active"
             )
-        );
+          );
 
-        panels.forEach(
-          panel =>
+
+        document
+          .querySelectorAll(".panel")
+          .forEach(panel =>
             panel.classList.remove(
               "active"
             )
-        );
+          );
 
-        tab.classList.add(
+
+        button.classList.add(
           "active"
         );
 
+
         const panel =
-          document.getElementById(
-            target
-          );
+          $(target);
+
 
         if (panel) {
 
@@ -136,21 +94,27 @@ tabs.forEach(
             "active"
           );
 
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+          });
+
         }
 
       }
     );
 
-  }
-);
+  });
 
 
 /* =========================================================
-   DARK / LIGHT THEME
+   THEME
 ========================================================= */
 
 const themeButton =
-  $("themeToggle");
+  $("themeToggle") ||
+  $("themeBtn");
+
 
 if (themeButton) {
 
@@ -159,16 +123,18 @@ if (themeButton) {
     () => {
 
       document.body.classList.toggle(
-        "light"
+        "light-mode"
       );
+
 
       const isLight =
         document.body.classList.contains(
-          "light"
+          "light-mode"
         );
 
+
       localStorage.setItem(
-        "vantara-theme",
+        "vantaraTheme",
         isLight
           ? "light"
           : "dark"
@@ -180,33 +146,28 @@ if (themeButton) {
 }
 
 
-/* =========================================================
-   LOAD SAVED THEME
-========================================================= */
-
-const savedTheme =
-  localStorage.getItem(
-    "vantara-theme"
-  );
-
 if (
-  savedTheme === "light"
+  localStorage.getItem(
+    "vantaraTheme"
+  ) === "light"
 ) {
 
   document.body.classList.add(
-    "light"
+    "light-mode"
   );
 
 }
 
 
 /* =========================================================
-   BROWSER SPEECH SYNTHESIS
+   SPEECH SYNTHESIS VARIABLES
 ========================================================= */
 
 let availableVoices = [];
 
-let selectedBrowserVoice = null;
+let voiceIsRunning = false;
+
+let currentSpeechToken = 0;
 
 
 /* =========================================================
@@ -221,7 +182,7 @@ function loadBrowserVoices() {
 
     setStatus(
       "voiceStatus",
-      "Browser voice synthesis is not supported.",
+      "Speech synthesis is not supported in this browser.",
       "error"
     );
 
@@ -229,9 +190,11 @@ function loadBrowserVoices() {
 
   }
 
+
   availableVoices =
     window.speechSynthesis
       .getVoices();
+
 
   updateVoiceList();
 
@@ -239,17 +202,73 @@ function loadBrowserVoices() {
 
 
 /* =========================================================
-   VOICE GENDER DETECTION
+   BROWSER VOICE EVENT
+========================================================= */
+
+if (
+  "speechSynthesis" in window
+) {
+
+  window.speechSynthesis
+    .addEventListener(
+      "voiceschanged",
+      loadBrowserVoices
+    );
+
+
+  loadBrowserVoices();
+
+}
+/* =========================================================
+   VANTARA EDITOR V2
+   PART 1B
+   VOICE SELECTION + SPEECH SETUP
+========================================================= */
+
+
+/* =========================================================
+   LANGUAGE
+========================================================= */
+
+function getSelectedLanguage() {
+
+  return (
+    $("language")?.value ||
+    "hi-IN"
+  );
+
+}
+
+
+/* =========================================================
+   SPEAKING SPEED
+========================================================= */
+
+function getSelectedPace() {
+
+  return Number(
+    $("pace")?.value || 1
+  );
+
+}
+
+
+/* =========================================================
+   DETECT VOICE GENDER
 ========================================================= */
 
 function detectVoiceGender(
   voice
 ) {
 
-  const name =
-    voice.name.toLowerCase();
+  const name = (
+    voice.name +
+    " " +
+    voice.voiceURI
+  ).toLowerCase();
 
-  const femaleKeywords = [
+
+  const femaleWords = [
     "female",
     "zira",
     "samantha",
@@ -264,7 +283,8 @@ function detectVoiceGender(
     "swara"
   ];
 
-  const maleKeywords = [
+
+  const maleWords = [
     "male",
     "david",
     "mark",
@@ -273,13 +293,15 @@ function detectVoiceGender(
     "george",
     "ravi",
     "hemant",
-    "madhur"
+    "madhur",
+    "raj"
   ];
 
+
   if (
-    femaleKeywords.some(
-      keyword =>
-        name.includes(keyword)
+    femaleWords.some(
+      word =>
+        name.includes(word)
     )
   ) {
 
@@ -287,10 +309,11 @@ function detectVoiceGender(
 
   }
 
+
   if (
-    maleKeywords.some(
-      keyword =>
-        name.includes(keyword)
+    maleWords.some(
+      word =>
+        name.includes(word)
     )
   ) {
 
@@ -298,73 +321,172 @@ function detectVoiceGender(
 
   }
 
+
   return "unknown";
 
 }
 
 
 /* =========================================================
-   GET SELECTED GENDER
+   SELECTED GENDER
 ========================================================= */
 
 function getSelectedGender() {
 
   return (
     $("voiceGender")?.value ||
-    "male"
+    "all"
   );
 
 }
 
 
 /* =========================================================
-   UPDATE VOICE DROPDOWN
+   UPDATE TEACHER VOICE LIST
 ========================================================= */
 
 function updateVoiceList() {
 
-  const speaker =
+  const select =
     $("speaker");
 
-  if (!speaker) return;
+
+  if (!select)
+    return;
+
+
+  const language =
+    getSelectedLanguage();
+
+
+  const languageCode =
+    language.split("-")[0];
+
 
   const gender =
     getSelectedGender();
 
-  speaker.innerHTML = "";
 
   let voices =
-    availableVoices;
+    availableVoices.filter(
+      voice =>
+        voice.lang &&
+        voice.lang
+          .toLowerCase()
+          .startsWith(
+            languageCode
+              .toLowerCase()
+          )
+    );
+
+
+  /*
+    Filter by gender when
+    possible.
+  */
 
   if (
     gender !== "all"
   ) {
 
-    const matchingVoices =
-      availableVoices.filter(
+    const filtered =
+      voices.filter(
         voice =>
           detectVoiceGender(
             voice
           ) === gender
       );
 
-    /*
-      Some browsers don't expose
-      gender information.
 
-      If no matching voices are
-      detected, show all voices
-      instead of leaving the list empty.
+    /*
+      If the browser does not
+      provide gender-identifiable
+      voices, keep the language
+      voices instead of showing
+      an empty dropdown.
     */
 
     if (
-      matchingVoices.length > 0
+      filtered.length > 0
     ) {
 
       voices =
-        matchingVoices;
+        filtered;
 
     }
+
+  }
+
+
+  /*
+    If no voices are found
+    for this language, use all
+    browser voices.
+  */
+
+  if (
+    voices.length === 0
+  ) {
+
+    voices =
+      availableVoices;
+
+  }
+
+
+  const oldValue =
+    select.value;
+
+
+  select.innerHTML = "";
+
+
+  voices.forEach(
+    voice => {
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+
+      option.value =
+        voice.name;
+
+
+      option.textContent =
+        voice.name;
+
+
+      select.appendChild(
+        option
+      );
+
+    }
+  );
+
+
+  /*
+    Restore previous selection
+    if it still exists.
+  */
+
+  const stillExists =
+    Array.from(
+      select.options
+    ).some(
+      option =>
+        option.value ===
+        oldValue
+    );
+
+
+  if (
+    stillExists
+  ) {
+
+    select.value =
+      oldValue;
 
   }
 
@@ -373,273 +495,119 @@ function updateVoiceList() {
     voices.length === 0
   ) {
 
-    const option =
-      document.createElement(
-        "option"
-      );
-
-    option.value = "";
-
-    option.textContent =
-      "No browser voices found";
-
-    speaker.appendChild(
-      option
-    );
-
-    return;
-
-  }
-
-
-  voices.forEach(
-    (
-      voice,
-      index
-    ) => {
-
-      const option =
-        document.createElement(
-          "option"
-        );
-
-      option.value =
-        index;
-
-      option.textContent =
-        `${voice.name} — ${voice.lang}`;
-
-      option.dataset.voiceName =
-        voice.name;
-
-      speaker.appendChild(
-        option
-      );
-
-    }
-  );
-
-
-  selectedBrowserVoice =
-    voices[0] || null;
-
-}
-
-
-/* =========================================================
-   GENDER CHANGE
-========================================================= */
-
-$("voiceGender")?.addEventListener(
-  "change",
-  () => {
-
-    updateVoiceList();
-
-    const gender =
-      getSelectedGender();
-
-    let label =
-      "All";
-
-    if (
-      gender === "male"
-    ) {
-
-      label =
-        "Male";
-
-    }
-
-    if (
-      gender === "female"
-    ) {
-
-      label =
-        "Female";
-
-    }
-
     setStatus(
       "voiceStatus",
-      `${label} voices loaded.`
+      "No browser voices found. Try Chrome or Edge.",
+      "warning"
     );
 
   }
-);
-
-
-/* =========================================================
-   VOICE SELECTION
-========================================================= */
-
-$("speaker")?.addEventListener(
-  "change",
-  () => {
-
-    const index =
-      Number(
-        $("speaker").value
-      );
-
-    const gender =
-      getSelectedGender();
-
-    let voices =
-      availableVoices;
-
-    if (
-      gender !== "all"
-    ) {
-
-      const matchingVoices =
-        availableVoices.filter(
-          voice =>
-            detectVoiceGender(
-              voice
-            ) === gender
-        );
-
-      if (
-        matchingVoices.length > 0
-      ) {
-
-        voices =
-          matchingVoices;
-
-      }
-
-    }
-
-    selectedBrowserVoice =
-      voices[index] ||
-      null;
-
-    if (
-      selectedBrowserVoice
-    ) {
-
-      setStatus(
-        "voiceStatus",
-        `Selected: ${selectedBrowserVoice.name}`
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   VOICES CHANGED EVENT
-========================================================= */
-
-if (
-  "speechSynthesis" in window
-) {
-
-  window.speechSynthesis
-    .addEventListener(
-      "voiceschanged",
-      loadBrowserVoices
-    );
-
-  loadBrowserVoices();
-
-}
-/* =========================================================
-   /* =========================================================
-   VANTARA EDITOR V2
-   PART 1B — FIXED SPEECH SYNTHESIS
-========================================================= */
-
-function getSelectedLanguage() {
-
-  return $("language")?.value || "hi-IN";
 
 }
 
 
-function getSelectedPace() {
-
-  return Number(
-    $("pace")?.value || 1
-  );
-
-}
-
+/* =========================================================
+   GET SELECTED VOICE
+========================================================= */
 
 function getSelectedVoice() {
 
   const select =
     $("speaker");
 
-  if (!select) return null;
 
-  const voiceName =
-    select.value;
+  if (!select)
+    return null;
 
-  return availableVoices.find(
-    voice =>
-      voice.name === voiceName
-  ) || null;
+
+  return (
+    availableVoices.find(
+      voice =>
+        voice.name ===
+        select.value
+    ) || null
+  );
 
 }
 
 
 /* =========================================================
-   WAIT FOR BROWSER VOICES
+   WAIT FOR VOICES
 ========================================================= */
 
-function waitForVoices(timeout = 3000) {
+function waitForVoices() {
 
   return new Promise(
     resolve => {
 
-      const synth =
-        window.speechSynthesis;
+      if (
+        !("speechSynthesis" in window)
+      ) {
 
-      const existing =
-        synth.getVoices();
+        resolve([]);
 
-      if (existing.length > 0) {
-
-        resolve(existing);
         return;
 
       }
 
 
-      let finished = false;
+      const existing =
+        window.speechSynthesis
+          .getVoices();
+
+
+      if (
+        existing.length > 0
+      ) {
+
+        resolve(
+          existing
+        );
+
+        return;
+
+      }
+
+
+      let finished =
+        false;
 
 
       const finish = () => {
 
-        if (finished) return;
+        if (finished)
+          return;
 
-        finished = true;
 
-        synth.removeEventListener(
-          "voiceschanged",
-          finish
-        );
+        finished =
+          true;
+
+
+        window.speechSynthesis
+          .removeEventListener(
+            "voiceschanged",
+            finish
+          );
+
 
         resolve(
-          synth.getVoices()
+          window.speechSynthesis
+            .getVoices()
         );
 
       };
 
 
-      synth.addEventListener(
-        "voiceschanged",
-        finish
-      );
+      window.speechSynthesis
+        .addEventListener(
+          "voiceschanged",
+          finish
+        );
 
 
       setTimeout(
         finish,
-        timeout
+        3000
       );
 
     }
@@ -652,10 +620,15 @@ function waitForVoices(timeout = 3000) {
    SPEAK TEXT
 ========================================================= */
 
-function speakText(text) {
+function speakText(
+  text
+) {
 
   return new Promise(
-    async (resolve, reject) => {
+    async (
+      resolve,
+      reject
+    ) => {
 
       if (
         !text ||
@@ -663,6 +636,7 @@ function speakText(text) {
       ) {
 
         resolve();
+
         return;
 
       }
@@ -674,7 +648,7 @@ function speakText(text) {
 
         reject(
           new Error(
-            "Speech synthesis is not supported in this browser."
+            "Speech synthesis is not available."
           )
         );
 
@@ -685,11 +659,6 @@ function speakText(text) {
 
       try {
 
-        /*
-          Make sure browser voices
-          have loaded first.
-        */
-
         await waitForVoices();
 
 
@@ -698,24 +667,18 @@ function speakText(text) {
 
 
         /*
-          Cancel any previous
-          unfinished speech.
+          Clear previous speech
+          before starting new speech.
         */
 
         synth.cancel();
 
 
-        /*
-          Small delay helps some
-          Android browsers restart
-          speech synthesis correctly.
-        */
-
         await new Promise(
-          r =>
+          delay =>
             setTimeout(
-              r,
-              100
+              delay,
+              150
             )
         );
 
@@ -746,57 +709,41 @@ function speakText(text) {
           getSelectedVoice();
 
 
-        /*
-          Only assign a voice if
-          it actually exists.
-        */
-
-        if (selectedVoice) {
+        if (
+          selectedVoice
+        ) {
 
           utterance.voice =
             selectedVoice;
 
-          /*
-            Keep language aligned
-            with selected language.
-          */
-
-          utterance.lang =
-            selectedVoice.lang ||
-            getSelectedLanguage();
-
         }
 
 
-        let started = false;
+        let finished =
+          false;
 
 
-        utterance.onstart =
-          () => {
+        const finish = () => {
 
-            started = true;
+          if (finished)
+            return;
 
-          };
+
+          finished =
+            true;
+
+
+          resolve();
+
+        };
 
 
         utterance.onend =
-          () => {
-
-            resolve();
-
-          };
+          finish;
 
 
         utterance.onerror =
           event => {
-
-            /*
-              "interrupted" and
-              "canceled" are usually
-              caused by another speech
-              request, so report them
-              clearly.
-            */
 
             if (
               event.error ===
@@ -805,18 +752,28 @@ function speakText(text) {
                 "interrupted"
             ) {
 
-              resolve();
+              finish();
 
               return;
 
             }
 
 
+            if (finished)
+              return;
+
+
+            finished =
+              true;
+
+
             reject(
               new Error(
-                `Speech synthesis failed: ${
-                  event.error || "unknown error"
-                }`
+                "Speech synthesis failed: " +
+                (
+                  event.error ||
+                  "unknown error"
+                )
               )
             );
 
@@ -824,9 +781,8 @@ function speakText(text) {
 
 
         /*
-          Android Chrome sometimes
-          needs speechSynthesis.resume()
-          before speaking.
+          Helps Android browsers
+          resume speech correctly.
         */
 
         synth.resume();
@@ -838,75 +794,46 @@ function speakText(text) {
 
 
         /*
-          Safety check.
-          If speech never starts,
-          retry once without a
-          manually selected voice.
+          Keep Android speech alive
+          during long narration.
         */
 
-        setTimeout(
-          () => {
+        const keepAlive =
+          setInterval(
+            () => {
 
-            if (
-              !started &&
-              !synth.speaking
-            ) {
+              if (
+                !synth.speaking ||
+                finished
+              ) {
 
-              synth.cancel();
-
-
-              const retry =
-                new SpeechSynthesisUtterance(
-                  text
+                clearInterval(
+                  keepAlive
                 );
 
+                return;
 
-              retry.lang =
-                getSelectedLanguage();
-
-
-              retry.rate =
-                getSelectedPace();
-
-
-              retry.pitch =
-                1;
-
-
-              retry.volume =
-                1;
-
-
-              retry.onend =
-                () => resolve();
-
-
-              retry.onerror =
-                event => {
-
-                  reject(
-                    new Error(
-                      `Speech synthesis failed: ${
-                        event.error || "unknown error"
-                      }`
-                    )
-                  );
-
-                };
+              }
 
 
               synth.resume();
 
+            },
+            5000
+          );
 
-              synth.speak(
-                retry
-              );
 
-            }
+        utterance.onend =
+          () => {
 
-          },
-          700
-        );
+            clearInterval(
+              keepAlive
+            );
+
+            finish();
+
+          };
+
 
       } catch (error) {
 
@@ -923,29 +850,35 @@ function speakText(text) {
 
 
 /* =========================================================
-   SCRIPT CHARACTER COUNTER
+   SCRIPT COUNTER
 ========================================================= */
 
 $("script")?.addEventListener(
   "input",
   () => {
 
-    const text =
-      $("script").value || "";
+    const length =
+      $("script").value.length;
 
 
-    if ($("charCount")) {
+    if (
+      $("charCount")
+    ) {
 
-      $("charCount").textContent =
-        `${text.length} characters`;
+      $("charCount")
+        .textContent =
+        `${length} characters`;
 
     }
 
 
-    if ($("count")) {
+    if (
+      $("count")
+    ) {
 
-      $("count").textContent =
-        `${text.length} characters`;
+      $("count")
+        .textContent =
+        `${length} characters`;
 
     }
 
@@ -954,7 +887,7 @@ $("script")?.addEventListener(
 
 
 /* =========================================================
-   SPLIT LONG SCRIPT
+   SPLIT LONG SCRIPTS
 ========================================================= */
 
 function splitText(
@@ -966,11 +899,8 @@ function splitText(
     text.trim();
 
 
-  if (!clean) {
-
+  if (!clean)
     return [];
-
-  }
 
 
   const words =
@@ -988,14 +918,21 @@ function splitText(
     const word of words
   ) {
 
+    const test =
+      (
+        current +
+        " " +
+        word
+      ).trim();
+
+
     if (
-      (current + " " + word)
-        .trim()
-        .length <= maxLength
+      test.length <=
+      maxLength
     ) {
 
       current =
-        `${current} ${word}`.trim();
+        test;
 
     } else {
 
@@ -1006,6 +943,7 @@ function splitText(
         );
 
       }
+
 
       current =
         word;
@@ -1041,10 +979,12 @@ function displayChunks(
     $("chunkLog");
 
 
-  if (!container) return;
+  if (!container)
+    return;
 
 
-  container.innerHTML = "";
+  container.innerHTML =
+    "";
 
 
   chunks.forEach(
@@ -1078,7 +1018,7 @@ function displayChunks(
 
 
 /* =========================================================
-   LANGUAGE CHANGE
+   VOICE CONTROLS
 ========================================================= */
 
 $("language")?.addEventListener(
@@ -1090,16 +1030,41 @@ $("language")?.addEventListener(
 
     setStatus(
       "voiceStatus",
-      "Language updated. Select a suitable browser voice."
+      "Language updated."
     );
 
   }
 );
 
 
-/* =========================================================
-   PACE CHANGE
-========================================================= */
+$("voiceGender")?.addEventListener(
+  "change",
+  () => {
+
+    updateVoiceList();
+
+
+    setStatus(
+      "voiceStatus",
+      "Voice type updated."
+    );
+
+  }
+);
+
+
+$("speaker")?.addEventListener(
+  "change",
+  () => {
+
+    setStatus(
+      "voiceStatus",
+      "Teacher voice selected."
+    );
+
+  }
+);
+
 
 $("pace")?.addEventListener(
   "change",
@@ -1107,7 +1072,7 @@ $("pace")?.addEventListener(
 
     setStatus(
       "voiceStatus",
-      `Speaking speed set to ${getSelectedPace()}×.`
+      "Speaking speed updated."
     );
 
   }
@@ -1115,256 +1080,32 @@ $("pace")?.addEventListener(
 
 
 /* =========================================================
-   INITIAL STATUS
+   INITIAL VOICE LOAD
 ========================================================= */
 
-if ($("voiceStatus")) {
+setTimeout(
+  () => {
 
-  setStatus(
-    "voiceStatus",
-    "Ready. Enter your script and generate the voiceover."
-  );
+    loadBrowserVoices();
 
-}
+  },
+  500
+);
+/* =========================================================
    VANTARA EDITOR V2
    PART 2A
-   GENERATE + PREVIEW + STOP
+   VOICEOVER GENERATION + LONG SCRIPT PLAYBACK
 ========================================================= */
-
-let voiceIsRunning = false;
 
 
 /* =========================================================
-   GENERATE VOICEOVER
+   STOP CURRENT SPEECH
 ========================================================= */
 
-$("generate")?.addEventListener(
-  "click",
-  async () => {
+function stopVoiceover() {
 
-    const text =
-      $("script")?.value?.trim();
+  currentSpeechToken++;
 
-    if (!text) {
-
-      setStatus(
-        "voiceStatus",
-        "Please enter your teacher script first.",
-        "error"
-      );
-
-      return;
-    }
-
-
-    if (
-      !("speechSynthesis" in window)
-    ) {
-
-      setStatus(
-        "voiceStatus",
-        "Speech synthesis is not supported in this browser.",
-        "error"
-      );
-
-      return;
-    }
-
-
-    const chunks =
-      splitText(
-        text,
-        1800
-      );
-
-    displayChunks(chunks);
-
-    if (
-      chunks.length === 0
-    ) {
-
-      setStatus(
-        "voiceStatus",
-        "No readable text found.",
-        "error"
-      );
-
-      return;
-    }
-
-
-    voiceIsRunning = true;
-
-    const generateButton =
-      $("generate");
-
-    if (generateButton) {
-
-      generateButton.disabled =
-        true;
-
-      generateButton.textContent =
-        "Generating...";
-
-    }
-
-
-    try {
-
-      for (
-        let i = 0;
-        i < chunks.length;
-        i++
-      ) {
-
-        if (!voiceIsRunning) {
-          break;
-        }
-
-
-        setStatus(
-          "voiceStatus",
-          `Playing voiceover part ${i + 1} of ${chunks.length}...`,
-          "warning"
-        );
-
-
-        await speakText(
-          chunks[i]
-        );
-
-      }
-
-
-      if (voiceIsRunning) {
-
-        setStatus(
-          "voiceStatus",
-          "Voiceover completed successfully.",
-          "success"
-        );
-
-      } else {
-
-        setStatus(
-          "voiceStatus",
-          "Voiceover stopped."
-        );
-
-      }
-
-    } catch (error) {
-
-      setStatus(
-        "voiceStatus",
-        error.message ||
-          "Voiceover failed.",
-        "error"
-      );
-
-    } finally {
-
-      voiceIsRunning =
-        false;
-
-      if (generateButton) {
-
-        generateButton.disabled =
-          false;
-
-        generateButton.textContent =
-          "Generate Voiceover";
-
-      }
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   PREVIEW VOICE
-========================================================= */
-
-$("previewVoice")?.addEventListener(
-  "click",
-  async () => {
-
-    const text =
-      $("script")?.value?.trim();
-
-    if (!text) {
-
-      setStatus(
-        "voiceStatus",
-        "Enter some text before previewing.",
-        "error"
-      );
-
-      return;
-    }
-
-
-    const previewText =
-      text.length > 500
-        ? text.slice(0, 500)
-        : text;
-
-
-    try {
-
-      voiceIsRunning =
-        true;
-
-      setStatus(
-        "voiceStatus",
-        "Playing voice preview...",
-        "warning"
-      );
-
-      await speakText(
-        previewText
-      );
-
-      if (voiceIsRunning) {
-
-        setStatus(
-          "voiceStatus",
-          "Voice preview completed.",
-          "success"
-        );
-
-      }
-
-    } catch (error) {
-
-      setStatus(
-        "voiceStatus",
-        error.message ||
-          "Preview failed.",
-        "error"
-      );
-
-    } finally {
-
-      voiceIsRunning =
-        false;
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   STOP VOICE
-========================================================= */
-
-function stopVoice() {
-
-  voiceIsRunning =
-    false;
 
   if (
     "speechSynthesis" in window
@@ -1374,269 +1115,831 @@ function stopVoice() {
 
   }
 
-  const generateButton =
-    $("generate");
 
-  if (generateButton) {
+  voiceIsRunning =
+    false;
 
-    generateButton.disabled =
-      false;
-
-    generateButton.textContent =
-      "Generate Voiceover";
-
-  }
 
   setStatus(
     "voiceStatus",
-    "Voice playback stopped."
+    "Voiceover stopped."
   );
 
 }
+
+
+/* =========================================================
+   PLAY ALL CHUNKS
+========================================================= */
+
+async function playVoiceover(
+  chunks
+) {
+
+  if (
+    !chunks ||
+    chunks.length === 0
+  ) {
+
+    throw new Error(
+      "No script available."
+    );
+
+  }
+
+
+  if (voiceIsRunning) {
+
+    stopVoiceover();
+
+
+    await new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          200
+        )
+    );
+
+  }
+
+
+  voiceIsRunning =
+    true;
+
+
+  const speechToken =
+    ++currentSpeechToken;
+
+
+  try {
+
+    for (
+      let i = 0;
+      i < chunks.length;
+      i++
+    ) {
+
+      /*
+        Stop if the user pressed
+        the Stop button.
+      */
+
+      if (
+        speechToken !==
+        currentSpeechToken
+      ) {
+
+        break;
+
+      }
+
+
+      const partNumber =
+        i + 1;
+
+
+      setStatus(
+        "voiceStatus",
+        `Speaking part ${partNumber} of ${chunks.length}...`
+      );
+
+
+      await speakText(
+        chunks[i]
+      );
+
+
+      /*
+        Small pause between
+        script sections.
+      */
+
+      if (
+        i <
+        chunks.length - 1
+      ) {
+
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              250
+            )
+        );
+
+      }
+
+    }
+
+
+    if (
+      speechToken ===
+      currentSpeechToken
+    ) {
+
+      setStatus(
+        "voiceStatus",
+        "Voiceover completed successfully.",
+        "success"
+      );
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Voiceover error:",
+      error
+    );
+
+
+    setStatus(
+      "voiceStatus",
+      error.message ||
+        "Voiceover generation failed.",
+      "error"
+    );
+
+  } finally {
+
+    voiceIsRunning =
+      false;
+
+  }
+
+}
+
+
+/* =========================================================
+   GENERATE VOICEOVER
+========================================================= */
+
+async function generateVoiceover() {
+
+  const script =
+    $("script")?.value.trim();
+
+
+  if (!script) {
+
+    setStatus(
+      "voiceStatus",
+      "Please paste your script first.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    !("speechSynthesis" in window)
+  ) {
+
+    setStatus(
+      "voiceStatus",
+      "Speech synthesis is not supported in this browser.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const button =
+    $("generate");
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Preparing Voiceover...";
+
+  }
+
+
+  try {
+
+    setStatus(
+      "voiceStatus",
+      "Loading browser voices..."
+    );
+
+
+    /*
+      Make sure browser voices
+      are available.
+    */
+
+    const voices =
+      await waitForVoices();
+
+
+    if (
+      voices.length === 0
+    ) {
+
+      throw new Error(
+        "No browser voices were found. Please use Chrome or Edge."
+      );
+
+    }
+
+
+    availableVoices =
+      voices;
+
+
+    updateVoiceList();
+
+
+    /*
+      Split a long script into
+      safe browser speech sections.
+    */
+
+    const chunks =
+      splitText(
+        script,
+        1800
+      );
+
+
+    displayChunks(
+      chunks
+    );
+
+
+    setStatus(
+      "voiceStatus",
+      `${chunks.length} part${chunks.length === 1 ? "" : "s"} ready. Starting voiceover...`
+    );
+
+
+    /*
+      Start speaking.
+    */
+
+    await playVoiceover(
+      chunks
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    setStatus(
+      "voiceStatus",
+      error.message ||
+        "Unable to start voiceover.",
+      "error"
+    );
+
+  } finally {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Generate Voiceover";
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   GENERATE BUTTON
+========================================================= */
+
+$("generate")?.addEventListener(
+  "click",
+  generateVoiceover
+);
 
 
 /* =========================================================
    STOP BUTTON
 ========================================================= */
 
-$("stopVoice")?.addEventListener(
-  "click",
-  stopVoice
-);
+const stopButton =
+  $("stopVoice") ||
+  $("stopVoiceover");
 
 
-/* =========================================================
-   ESCAPE KEY = STOP VOICE
-========================================================= */
+if (stopButton) {
 
-document.addEventListener(
-  "keydown",
-  (event) => {
-
-    if (
-      event.key === "Escape" &&
-      voiceIsRunning
-    ) {
-
-      stopVoice();
-
-    }
-
-  }
-);
-/* =========================================================
-   PART 2B
-   VOICE CONTROLS
-========================================================= */
-
-
-/* =========================================================
-   TEST SELECTED VOICE
-========================================================= */
-
-$("testVoice")?.addEventListener(
-  "click",
-  async () => {
-
-    const voice =
-      getSelectedVoice();
-
-    const language =
-      getSelectedLanguage();
-
-    const gender =
-      getSelectedGender();
-
-    let sample =
-      "Welcome to Vantara Education. Let's begin our learning journey.";
-
-    if (
-      language === "hi-IN"
-    ) {
-
-      sample =
-        "नमस्ते विद्यार्थियों। Vantara Education में आपका स्वागत है। चलिए अपनी learning journey शुरू करते हैं।";
-
-    }
-
-
-    try {
-
-      voiceIsRunning =
-        true;
-
-      setStatus(
-        "voiceStatus",
-        `Testing ${gender} voice...`,
-        "warning"
-      );
-
-      await speakText(
-        sample
-      );
-
-      if (voiceIsRunning) {
-
-        setStatus(
-          "voiceStatus",
-          voice
-            ? `Voice test completed: ${voice.name}`
-            : "Voice test completed.",
-          "success"
-        );
-
-      }
-
-    } catch (error) {
-
-      setStatus(
-        "voiceStatus",
-        error.message ||
-          "Voice test failed.",
-        "error"
-      );
-
-    } finally {
-
-      voiceIsRunning =
-        false;
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   FALLBACK FOR DIFFERENT BUTTON ID
-========================================================= */
-
-$("previewVoice")?.addEventListener(
-  "dblclick",
-  () => {
-
-    if ($("testVoice")) {
-      return;
-    }
-
-  }
-);
-
-
-/* =========================================================
-   LANGUAGE + VOICE INFORMATION
-========================================================= */
-
-function updateVoiceInformation() {
-
-  const voice =
-    getSelectedVoice();
-
-  const gender =
-    getSelectedGender();
-
-  if (!voice) {
-
-    return;
-
-  }
-
-  const genderText =
-    gender === "male"
-      ? "Male"
-      : gender === "female"
-        ? "Female"
-        : "All";
-
-  setStatus(
-    "voiceStatus",
-    `${genderText} • ${voice.name} • ${voice.lang}`
+  stopButton.addEventListener(
+    "click",
+    stopVoiceover
   );
 
 }
 
 
 /* =========================================================
-   VOICE GENDER UPDATE
+   KEYBOARD SHORTCUT
+   ESC = STOP VOICEOVER
 ========================================================= */
 
-$("voiceGender")?.addEventListener(
-  "change",
-  () => {
+document.addEventListener(
+  "keydown",
+  event => {
 
-    setTimeout(
-      updateVoiceInformation,
-      50
-    );
+    if (
+      event.key === "Escape" &&
+      voiceIsRunning
+    ) {
+
+      stopVoiceover();
+
+    }
 
   }
 );
 
 
 /* =========================================================
-   SPEAKER UPDATE
+   SCRIPT INPUT STATUS
 ========================================================= */
 
-$("speaker")?.addEventListener(
-  "change",
+$("script")?.addEventListener(
+  "input",
   () => {
 
-    setTimeout(
-      updateVoiceInformation,
-      50
-    );
+    const text =
+      $("script").value;
+
+
+    const chunks =
+      splitText(
+        text,
+        1800
+      );
+
+
+    if (
+      $("chunkLog") &&
+      chunks.length > 0
+    ) {
+
+      displayChunks(
+        chunks
+      );
+
+    }
+
+
+    if (
+      $("chunkLog") &&
+      !text.trim()
+    ) {
+
+      $("chunkLog").innerHTML =
+        "";
+
+    }
 
   }
 );
+/* =========================================================
+   VANTARA EDITOR V2
+   PART 2B
+   VOICEOVER UI + PREVIEW CONTROLS
+========================================================= */
 
 
 /* =========================================================
-   LANGUAGE UPDATE
+   PREVIEW CURRENT SCRIPT
+========================================================= */
+
+async function previewVoice() {
+
+  const script =
+    $("script")?.value.trim();
+
+
+  if (!script) {
+
+    setStatus(
+      "voiceStatus",
+      "Please enter a script first.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  if (voiceIsRunning) {
+
+    stopVoiceover();
+
+    return;
+
+  }
+
+
+  const previewButton =
+    $("previewVoice") ||
+    $("preview") ||
+    $("previewBtn");
+
+
+  if (previewButton) {
+
+    previewButton.disabled =
+      true;
+
+    previewButton.textContent =
+      "Playing...";
+
+  }
+
+
+  try {
+
+    const chunks =
+      splitText(
+        script,
+        1800
+      );
+
+
+    /*
+      Preview only the first
+      section so a huge script
+      does not unexpectedly play
+      for a long time.
+    */
+
+    setStatus(
+      "voiceStatus",
+      "Playing preview..."
+    );
+
+
+    voiceIsRunning =
+      true;
+
+
+    const token =
+      ++currentSpeechToken;
+
+
+    await speakText(
+      chunks[0]
+    );
+
+
+    if (
+      token ===
+      currentSpeechToken
+    ) {
+
+      setStatus(
+        "voiceStatus",
+        "Preview completed.",
+        "success"
+      );
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Preview error:",
+      error
+    );
+
+
+    setStatus(
+      "voiceStatus",
+      error.message ||
+        "Preview failed.",
+      "error"
+    );
+
+  } finally {
+
+    voiceIsRunning =
+      false;
+
+
+    if (previewButton) {
+
+      previewButton.disabled =
+        false;
+
+      previewButton.textContent =
+        "Preview Voice";
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   PREVIEW BUTTON
+========================================================= */
+
+const previewButton =
+  $("previewVoice") ||
+  $("preview") ||
+  $("previewBtn");
+
+
+if (previewButton) {
+
+  previewButton.addEventListener(
+    "click",
+    previewVoice
+  );
+
+}
+
+
+/* =========================================================
+   STOP BUTTON — EXTRA SAFETY
+========================================================= */
+
+const stopVoiceButton =
+  $("stopVoice") ||
+  $("stopVoiceover") ||
+  $("stop");
+
+
+if (
+  stopVoiceButton &&
+  stopVoiceButton !==
+    previewButton
+) {
+
+  stopVoiceButton.addEventListener(
+    "click",
+    () => {
+
+      stopVoiceover();
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   CHARACTER COUNTER
+========================================================= */
+
+function updateCharacterCounter() {
+
+  const textarea =
+    $("script");
+
+
+  if (!textarea)
+    return;
+
+
+  const length =
+    textarea.value.length;
+
+
+  const counter =
+    $("charCount") ||
+    $("count");
+
+
+  if (counter) {
+
+    counter.textContent =
+      `${length} characters`;
+
+  }
+
+}
+
+
+$("script")?.addEventListener(
+  "input",
+  updateCharacterCounter
+);
+
+
+updateCharacterCounter();
+
+
+/* =========================================================
+   CLEAR SCRIPT
+========================================================= */
+
+const clearScriptButton =
+  $("clearScript");
+
+
+if (clearScriptButton) {
+
+  clearScriptButton.addEventListener(
+    "click",
+    () => {
+
+      const textarea =
+        $("script");
+
+
+      if (textarea) {
+
+        textarea.value =
+          "";
+
+      }
+
+
+      if (
+        $("chunkLog")
+      ) {
+
+        $("chunkLog").innerHTML =
+          "";
+
+      }
+
+
+      updateCharacterCounter();
+
+
+      setStatus(
+        "voiceStatus",
+        "Script cleared."
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   TEST VOICE BUTTON
+========================================================= */
+
+const testVoiceButton =
+  $("testVoice") ||
+  $("testVoiceBtn");
+
+
+if (testVoiceButton) {
+
+  testVoiceButton.addEventListener(
+    "click",
+    async () => {
+
+      if (voiceIsRunning) {
+
+        stopVoiceover();
+
+        return;
+
+      }
+
+
+      try {
+
+        voiceIsRunning =
+          true;
+
+
+        setStatus(
+          "voiceStatus",
+          "Testing selected teacher voice..."
+        );
+
+
+        await speakText(
+          "Good morning students. Welcome to Vantara Education."
+        );
+
+
+        setStatus(
+          "voiceStatus",
+          "Voice test completed.",
+          "success"
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        setStatus(
+          "voiceStatus",
+          error.message ||
+            "Voice test failed.",
+          "error"
+        );
+
+      } finally {
+
+        voiceIsRunning =
+          false;
+
+      }
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   REFRESH VOICES
+========================================================= */
+
+const refreshVoicesButton =
+  $("refreshVoices");
+
+
+if (refreshVoicesButton) {
+
+  refreshVoicesButton.addEventListener(
+    "click",
+    async () => {
+
+      try {
+
+        setStatus(
+          "voiceStatus",
+          "Refreshing browser voices..."
+        );
+
+
+        const voices =
+          await waitForVoices();
+
+
+        availableVoices =
+          voices;
+
+
+        updateVoiceList();
+
+
+        setStatus(
+          "voiceStatus",
+          `${voices.length} browser voice${voices.length === 1 ? "" : "s"} available.`,
+          "success"
+        );
+
+      } catch (error) {
+
+        setStatus(
+          "voiceStatus",
+          "Could not refresh voices.",
+          "error"
+        );
+
+      }
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   LANGUAGE CHANGE — REFRESH COUNTER
 ========================================================= */
 
 $("language")?.addEventListener(
   "change",
   () => {
 
-    const language =
-      getSelectedLanguage();
+    setTimeout(
+      () => {
 
-    if (
-      language === "hi-IN"
-    ) {
+        updateVoiceList();
 
-      setStatus(
-        "voiceStatus",
-        "Hindi / Hinglish voice selected."
-      );
-
-    } else {
-
-      setStatus(
-        "voiceStatus",
-        "English (Indian) voice selected."
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   PACE UPDATE
-========================================================= */
-
-$("pace")?.addEventListener(
-  "change",
-  () => {
-
-    const pace =
-      getSelectedPace();
-
-    setStatus(
-      "voiceStatus",
-      `Speaking speed set to ${pace}×.`
+      },
+      100
     );
 
   }
@@ -1644,59 +1947,128 @@ $("pace")?.addEventListener(
 
 
 /* =========================================================
-   INITIAL STATUS
+   PAGE VISIBILITY SAFETY
+========================================================= */
+
+document.addEventListener(
+  "visibilitychange",
+  () => {
+
+    /*
+      Some Android browsers pause
+      speech when the page becomes
+      hidden. Do not restart speech
+      automatically because that can
+      cause duplicate audio.
+    */
+
+    if (
+      document.hidden &&
+      voiceIsRunning
+    ) {
+
+      console.log(
+        "VANTARA EDITOR: page hidden while speech is running."
+      );
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   INITIAL VOICE UI CHECK
 ========================================================= */
 
 setTimeout(
   () => {
 
-    if (
-      availableVoices.length > 0
-    ) {
-
-      updateVoiceList();
-
-      setStatus(
-        "voiceStatus",
-        "Choose Male or Female and select a voice."
-      );
-
-    }
+    updateVoiceList();
+    updateCharacterCounter();
 
   },
-  500
+  1000
 );
 /* =========================================================
    VANTARA EDITOR V2
    PART 3A
-   LESSON BUILDER
+   LESSON BUILDER + SLIDE MANAGEMENT
+========================================================= */
+
+
+/* =========================================================
+   LESSON DATA
 ========================================================= */
 
 let lessonSlides = [];
 
+let editingSlideIndex = -1;
+
 
 /* =========================================================
-   RENDER SLIDES
+   LESSON ELEMENTS
+========================================================= */
+
+const lessonSlidesContainer =
+  $("slidesContainer") ||
+  $("lessonSlides");
+
+const lessonNameInput =
+  $("lessonName");
+
+const lessonTypeInput =
+  $("lessonType");
+
+const lessonStatusId =
+  "lessonStatus";
+
+
+/* =========================================================
+   RENDER LESSON SLIDES
 ========================================================= */
 
 function renderLessonSlides() {
 
-  const container = $("slides");
+  const container =
+    lessonSlidesContainer;
 
-  if (!container) return;
 
-  container.innerHTML = "";
+  if (!container)
+    return;
 
-  if (lessonSlides.length === 0) {
 
-    container.innerHTML = `
-      <div class="empty-state">
-        <strong>No slides added yet.</strong>
-        <p>Add a slide to start building your lesson.</p>
-      </div>
+  container.innerHTML =
+    "";
+
+
+  if (
+    lessonSlides.length === 0
+  ) {
+
+    const empty =
+      document.createElement("div");
+
+    empty.className =
+      "empty-state";
+
+
+    empty.innerHTML = `
+      <h3>No slides yet</h3>
+      <p>
+        Add your first lesson slide
+        to start building the class.
+      </p>
     `;
 
+
+    container.appendChild(
+      empty
+    );
+
+
     return;
+
   }
 
 
@@ -1707,1741 +2079,56 @@ function renderLessonSlides() {
         document.createElement("div");
 
       card.className =
-        "slide-card";
+        "lesson-slide";
+
 
       card.innerHTML = `
-        <div class="slide-card-header">
-
+        <div class="lesson-slide-header">
           <strong>
             Slide ${index + 1}
           </strong>
 
-          <button
-            type="button"
-            class="danger-btn"
-            data-remove-slide="${index}">
-            Remove
-          </button>
+          <div class="lesson-slide-actions">
 
+            <button
+              type="button"
+              class="small-btn"
+              data-edit-slide="${index}">
+              Edit
+            </button>
+
+            <button
+              type="button"
+              class="small-btn danger"
+              data-delete-slide="${index}">
+              Delete
+            </button>
+
+          </div>
         </div>
 
-        <label>
-          Slide Title
-        </label>
-
-        <input
-          type="text"
-          value="${escapeHTML(slide.title)}"
-          data-slide-title="${index}"
-          placeholder="Enter slide title"
-        >
-
-        <label>
-          Teacher Script
-        </label>
-
-        <textarea
-          data-slide-script="${index}"
-          placeholder="Enter teacher narration..."
-        >${escapeHTML(slide.script)}</textarea>
-      `;
-
-      container.appendChild(card);
-
-    }
-  );
-
-
-  /* =======================================================
-     REMOVE SLIDE
-  ======================================================= */
-
-  container
-    .querySelectorAll(
-      "[data-remove-slide]"
-    )
-    .forEach(
-      (button) => {
-
-        button.addEventListener(
-          "click",
-          () => {
-
-            const index =
-              Number(
-                button.dataset.removeSlide
-              );
-
-            lessonSlides.splice(
-              index,
-              1
-            );
-
-            renderLessonSlides();
-
-          }
-        );
-
-      }
-    );
-
-
-  /* =======================================================
-     UPDATE TITLES
-  ======================================================= */
-
-  container
-    .querySelectorAll(
-      "[data-slide-title]"
-    )
-    .forEach(
-      (input) => {
-
-        input.addEventListener(
-          "input",
-          () => {
-
-            const index =
-              Number(
-                input.dataset.slideTitle
-              );
-
-            lessonSlides[index].title =
-              input.value;
-
-          }
-        );
-
-      }
-    );
-
-
-  /* =======================================================
-     UPDATE SCRIPTS
-  ======================================================= */
-
-  container
-    .querySelectorAll(
-      "[data-slide-script]"
-    )
-    .forEach(
-      (textarea) => {
-
-        textarea.addEventListener(
-          "input",
-          () => {
-
-            const index =
-              Number(
-                textarea.dataset.slideScript
-              );
-
-            lessonSlides[index].script =
-              textarea.value;
-
-          }
-        );
-
-      }
-    );
-
-}
-
-
-/* =========================================================
-   ADD SLIDE
-========================================================= */
-
-$("addSlide")?.addEventListener(
-  "click",
-  () => {
-
-    lessonSlides.push({
-
-      title:
-        `Slide ${lessonSlides.length + 1}`,
-
-      script: ""
-
-    });
-
-    renderLessonSlides();
-
-  }
-);
-
-
-/* =========================================================
-   CLEAR ALL SLIDES
-========================================================= */
-
-$("clearSlides")?.addEventListener(
-  "click",
-  () => {
-
-    if (
-      lessonSlides.length === 0
-    ) {
-
-      return;
-
-    }
-
-
-    if (
-      !window.confirm(
-        "Are you sure you want to clear all slides?"
-      )
-    ) {
-
-      return;
-
-    }
-
-
-    lessonSlides = [];
-
-    renderLessonSlides();
-
-    setStatus(
-      "lessonStatus",
-      "All lesson slides cleared."
-    );
-
-  }
-);
-
-
-/* =========================================================
-   GENERATE / PLAY LESSON
-========================================================= */
-
-$("generateLesson")?.addEventListener(
-  "click",
-  async () => {
-
-    if (
-      lessonSlides.length === 0
-    ) {
-
-      setStatus(
-        "lessonStatus",
-        "Please add at least one slide.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    const validSlides =
-      lessonSlides.filter(
-        slide =>
-          slide.script &&
-          slide.script.trim()
-      );
-
-
-    if (
-      validSlides.length === 0
-    ) {
-
-      setStatus(
-        "lessonStatus",
-        "Add narration to at least one slide.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      voiceIsRunning =
-        true;
-
-
-      for (
-        let i = 0;
-        i < validSlides.length;
-        i++
-      ) {
-
-        if (
-          !voiceIsRunning
-        ) {
-
-          break;
-
-        }
-
-
-        setStatus(
-          "lessonStatus",
-          `Playing Slide ${i + 1} of ${validSlides.length}...`,
-          "warning"
-        );
-
-
-        const chunks =
-          splitText(
-            validSlides[i].script,
-            1800
-          );
-
-
-        for (
-          let j = 0;
-          j < chunks.length;
-          j++
-        ) {
-
-          if (
-            !voiceIsRunning
-          ) {
-
-            break;
-
-          }
-
-
-          await speakText(
-            chunks[j]
-          );
-
-        }
-
-      }
-
-
-      if (
-        voiceIsRunning
-      ) {
-
-        setStatus(
-          "lessonStatus",
-          "Lesson completed successfully.",
-          "success"
-        );
-
-      } else {
-
-        setStatus(
-          "lessonStatus",
-          "Lesson playback stopped."
-        );
-
-      }
-
-    } catch (error) {
-
-      setStatus(
-        "lessonStatus",
-        error.message ||
-          "Lesson playback failed.",
-        "error"
-      );
-
-    } finally {
-
-      voiceIsRunning =
-        false;
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   INITIALIZE
-========================================================= */
-
-renderLessonSlides();
-/* =========================================================
-   VANTARA EDITOR V2
-   PART 3B
-   AUDIO MERGE
-========================================================= */
-
-let selectedMergeFiles = [];
-
-
-/* =========================================================
-   FILE SELECTION
-========================================================= */
-
-$("mergeFiles")?.addEventListener(
-  "change",
-  () => {
-
-    selectedMergeFiles =
-      Array.from(
-        $("mergeFiles").files || []
-      );
-
-    renderMergeList();
-
-  }
-);
-
-
-/* =========================================================
-   SHOW SELECTED FILES
-========================================================= */
-
-function renderMergeList() {
-
-  const container =
-    $("mergeList");
-
-  if (!container) return;
-
-  container.innerHTML = "";
-
-
-  if (
-    selectedMergeFiles.length === 0
-  ) {
-
-    container.innerHTML = `
-      <div class="empty-state">
-        <strong>No audio files selected.</strong>
-        <p>Select your audio files in order.</p>
-      </div>
-    `;
-
-    return;
-
-  }
-
-
-  selectedMergeFiles.forEach(
-    (
-      file,
-      index
-    ) => {
-
-      const item =
-        document.createElement(
-          "div"
-        );
-
-      item.className =
-        "project-card";
-
-      item.innerHTML = `
-        <strong>
-          ${index + 1}. ${escapeHTML(file.name)}
-        </strong>
+        <h3>
+          ${escapeHTML(
+            slide.title || "Untitled Slide"
+          )}
+        </h3>
 
         <p>
-          ${(file.size / 1024 / 1024).toFixed(2)} MB
+          ${escapeHTML(
+            slide.content || "No content"
+          )}
         </p>
-      `;
 
-      container.appendChild(item);
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   MERGE BUTTON
-========================================================= */
-
-$("mergeBtn")?.addEventListener(
-  "click",
-  async () => {
-
-    if (
-      selectedMergeFiles.length === 0
-    ) {
-
-      setStatus(
-        "mergeStatus",
-        "Select audio files first.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      setStatus(
-        "mergeStatus",
-        "Reading audio files...",
-        "warning"
-      );
-
-
-      const AudioContextClass =
-        window.AudioContext ||
-        window.webkitAudioContext;
-
-
-      if (!AudioContextClass) {
-
-        throw new Error(
-          "Web Audio is not supported in this browser."
-        );
-
-      }
-
-
-      const context =
-        new AudioContextClass();
-
-
-      const buffers = [];
-
-
-      for (
-        const file of selectedMergeFiles
-      ) {
-
-        setStatus(
-          "mergeStatus",
-          `Reading ${file.name}...`,
-          "warning"
-        );
-
-
-        const data =
-          await file.arrayBuffer();
-
-
-        const decoded =
-          await context.decodeAudioData(
-            data
-          );
-
-
-        buffers.push(
-          decoded
-        );
-
-      }
-
-
-      setStatus(
-        "mergeStatus",
-        "Combining audio files...",
-        "warning"
-      );
-
-
-      const merged =
-        mergeAudioBuffers(
-          context,
-          buffers
-        );
-
-
-      const wav =
-        audioBufferToWav(
-          merged
-        );
-
-
-      const url =
-        URL.createObjectURL(
-          wav
-        );
-
-
-      const download =
-        $("mergeDownload");
-
-
-      if (download) {
-
-        download.href =
-          url;
-
-        download.download =
-          "vantara-merged-audio.wav";
-
-        download.hidden =
-          false;
-
-        download.textContent =
-          "Download merged audio";
-
-      }
-
-
-      setStatus(
-        "mergeStatus",
-        "Audio merged successfully.",
-        "success"
-      );
-
-
-      await context.close();
-
-    } catch (error) {
-
-      setStatus(
-        "mergeStatus",
-        error.message ||
-          "Audio merge failed.",
-        "error"
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   MERGE AUDIO BUFFERS
-========================================================= */
-
-function mergeAudioBuffers(
-  context,
-  buffers
-) {
-
-  if (
-    buffers.length === 0
-  ) {
-
-    throw new Error(
-      "No audio buffers available."
-    );
-
-  }
-
-
-  const sampleRate =
-    context.sampleRate;
-
-
-  let totalLength =
-    0;
-
-
-  buffers.forEach(
-    buffer => {
-
-      totalLength +=
-        buffer.length;
-
-    }
-  );
-
-
-  const channelCount =
-    Math.max(
-      ...buffers.map(
-        buffer =>
-          buffer.numberOfChannels
-      )
-    );
-
-
-  const output =
-    context.createBuffer(
-      channelCount,
-      totalLength,
-      sampleRate
-    );
-
-
-  let offset = 0;
-
-
-  buffers.forEach(
-    buffer => {
-
-      for (
-        let channel = 0;
-        channel < channelCount;
-        channel++
-      ) {
-
-        const outputData =
-          output.getChannelData(
-            channel
-          );
-
-
-        const sourceChannel =
-          Math.min(
-            channel,
-            buffer.numberOfChannels - 1
-          );
-
-
-        const inputData =
-          buffer.getChannelData(
-            sourceChannel
-          );
-
-
-        outputData.set(
-          inputData,
-          offset
-        );
-
-      }
-
-
-      offset +=
-        buffer.length;
-
-    }
-  );
-
-
-  return output;
-
-}
-
-
-/* =========================================================
-   INITIALIZE MERGE LIST
-========================================================= */
-
-renderMergeList();
-/* =========================================================
-   VANTARA EDITOR V2
-   PART 4A
-   AUDIO EDITOR + VOICE EFFECTS
-========================================================= */
-
-let editorAudioBuffer = null;
-let editorAudioContext = null;
-
-
-/* =========================================================
-   AUDIO FILE LOAD
-========================================================= */
-
-$("audioFile")?.addEventListener(
-  "change",
-  async () => {
-
-    const file =
-      $("audioFile").files?.[0];
-
-    if (!file) return;
-
-
-    try {
-
-      const AudioContextClass =
-        window.AudioContext ||
-        window.webkitAudioContext;
-
-      editorAudioContext =
-        new AudioContextClass();
-
-
-      const data =
-        await file.arrayBuffer();
-
-
-      editorAudioBuffer =
-        await editorAudioContext.decodeAudioData(
-          data
-        );
-
-
-      setStatus(
-        "audioStatus",
-        `${file.name} loaded successfully.`,
-        "success"
-      );
-
-
-      const preview =
-        $("audioPreview");
-
-      if (preview) {
-
-        preview.src =
-          URL.createObjectURL(file);
-
-        preview.hidden =
-          false;
-
-      }
-
-    } catch (error) {
-
-      setStatus(
-        "audioStatus",
-        "Could not read this audio file.",
-        "error"
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   VOLUME SLIDER
-========================================================= */
-
-$("volume")?.addEventListener(
-  "input",
-  () => {
-
-    const value =
-      Number(
-        $("volume").value
-      );
-
-
-    if ($("volumeValue")) {
-
-      $("volumeValue").textContent =
-        `${value}%`;
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   PROCESS AUDIO
-========================================================= */
-
-$("processAudio")?.addEventListener(
-  "click",
-  async () => {
-
-    if (!editorAudioBuffer) {
-
-      setStatus(
-        "audioStatus",
-        "Please select an audio file first.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      setStatus(
-        "audioStatus",
-        "Processing audio...",
-        "warning"
-      );
-
-
-      const volume =
-        Number(
-          $("volume")?.value || 100
-        ) / 100;
-
-
-      const fadeIn =
-        Number(
-          $("fadeIn")?.value || 0
-        );
-
-
-      const fadeOut =
-        Number(
-          $("fadeOut")?.value || 0
-        );
-
-
-      const buffer =
-        editorAudioBuffer;
-
-
-      const sampleRate =
-        buffer.sampleRate;
-
-
-      const length =
-        buffer.length;
-
-
-      const channels =
-        buffer.numberOfChannels;
-
-
-      const output =
-        new AudioBuffer({
-          length,
-          numberOfChannels:
-            channels,
-          sampleRate
-        });
-
-
-      const fadeInSamples =
-        Math.min(
-          Math.floor(
-            fadeIn * sampleRate
-          ),
-          length
-        );
-
-
-      const fadeOutSamples =
-        Math.min(
-          Math.floor(
-            fadeOut * sampleRate
-          ),
-          length
-        );
-
-
-      for (
-        let channel = 0;
-        channel < channels;
-        channel++
-      ) {
-
-        const input =
-          buffer.getChannelData(
-            channel
-          );
-
-
-        const out =
-          output.getChannelData(
-            channel
-          );
-
-
-        for (
-          let i = 0;
-          i < length;
-          i++
-        ) {
-
-          let gain =
-            volume;
-
-
-          /* Fade in */
-
-          if (
-            fadeInSamples > 0 &&
-            i < fadeInSamples
-          ) {
-
-            gain *=
-              i / fadeInSamples;
-
-          }
-
-
-          /* Fade out */
-
-          if (
-            fadeOutSamples > 0 &&
-            i >
-              length -
-              fadeOutSamples
-          ) {
-
-            gain *=
-              (
-                length - i
-              ) /
-              fadeOutSamples;
-
-          }
-
-
-          out[i] =
-            input[i] * gain;
-
+        ${
+          slide.notes
+            ? `
+              <small>
+                Teacher Notes:
+                ${escapeHTML(slide.notes)}
+              </small>
+            `
+            : ""
         }
-
-      }
-
-
-      const wav =
-        audioBufferToWav(
-          output
-        );
-
-
-      const url =
-        URL.createObjectURL(
-          wav
-        );
-
-
-      const download =
-        $("audioDownload");
-
-
-      if (download) {
-
-        download.href =
-          url;
-
-        download.download =
-          "vantara-edited-audio.wav";
-
-        download.hidden =
-          false;
-
-        download.textContent =
-          "Download edited audio";
-
-      }
-
-
-      setStatus(
-        "audioStatus",
-        "Audio processed successfully.",
-        "success"
-      );
-
-
-    } catch (error) {
-
-      setStatus(
-        "audioStatus",
-        error.message ||
-          "Audio processing failed.",
-        "error"
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   MALE / FEMALE VOICE EFFECT
-========================================================= */
-
-$("effectFile")?.addEventListener(
-  "change",
-  () => {
-
-    const file =
-      $("effectFile").files?.[0];
-
-    if (!file) return;
-
-
-    const audio =
-      $("effectAudio");
-
-
-    if (audio) {
-
-      audio.src =
-        URL.createObjectURL(
-          file
-        );
-
-      audio.hidden =
-        false;
-
-    }
-
-  }
-);
-
-
-$("pitch")?.addEventListener(
-  "input",
-  () => {
-
-    const value =
-      Number(
-        $("pitch").value
-      );
-
-
-    if ($("pitchValue")) {
-
-      $("pitchValue").textContent =
-        `${value.toFixed(2)}×`;
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   NOTE:
-   Browser pitch processing is only a basic effect.
-   It is NOT AI voice conversion.
-========================================================= */
-
-$("effectBtn")?.addEventListener(
-  "click",
-  async () => {
-
-    const file =
-      $("effectFile").files?.[0];
-
-    if (!file) {
-
-      setStatus(
-        "effectStatus",
-        "Please select an audio file first.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      setStatus(
-        "effectStatus",
-        "Creating voice effect...",
-        "warning"
-      );
-
-
-      const AudioContextClass =
-        window.AudioContext ||
-        window.webkitAudioContext;
-
-
-      const context =
-        new AudioContextClass();
-
-
-      const data =
-        await file.arrayBuffer();
-
-
-      const input =
-        await context.decodeAudioData(
-          data
-        );
-
-
-      const pitch =
-        Number(
-          $("pitch")?.value || 0.82
-        );
-
-
-      const output =
-        context.createBuffer(
-          input.numberOfChannels,
-          Math.floor(
-            input.length / pitch
-          ),
-          input.sampleRate
-        );
-
-
-      for (
-        let channel = 0;
-        channel < input.numberOfChannels;
-        channel++
-      ) {
-
-        const source =
-          input.getChannelData(
-            channel
-          );
-
-
-        const target =
-          output.getChannelData(
-            channel
-          );
-
-
-        for (
-          let i = 0;
-          i < target.length;
-          i++
-        ) {
-
-          const sourceIndex =
-            Math.floor(
-              i * pitch
-            );
-
-
-          if (
-            sourceIndex <
-            source.length
-          ) {
-
-            target[i] =
-              source[sourceIndex];
-
-          }
-
-        }
-
-      }
-
-
-      const wav =
-        audioBufferToWav(
-          output
-        );
-
-
-      const url =
-        URL.createObjectURL(
-          wav
-        );
-
-
-      const audio =
-        $("effectAudio");
-
-
-      if (audio) {
-
-        audio.src =
-          url;
-
-        audio.hidden =
-          false;
-
-      }
-
-
-      const download =
-        $("effectDownload");
-
-
-      if (download) {
-
-        download.href =
-          url;
-
-        download.download =
-          "vantara-voice-effect.wav";
-
-        download.hidden =
-          false;
-
-        download.textContent =
-          "Download voice effect";
-
-      }
-
-
-      setStatus(
-        "effectStatus",
-        "Voice effect created.",
-        "success"
-      );
-
-
-      await context.close();
-
-    } catch (error) {
-
-      setStatus(
-        "effectStatus",
-        error.message ||
-          "Voice effect failed.",
-        "error"
-      );
-
-    }
-
-  }
-);
-/* =========================================================
-   VANTARA EDITOR V2
-   PART 4B
-   BRAND KIT + SCRIPT ASSISTANT + PROJECT LIBRARY
-========================================================= */
-
-
-/* =========================================================
-   BRAND KIT
-========================================================= */
-
-$("saveBrand")?.addEventListener(
-  "click",
-  () => {
-
-    const brand = {
-
-      name:
-        $("brandName")?.value ||
-        "VANTARA EDUCATION",
-
-      website:
-        $("brandWebsite")?.value ||
-        "",
-
-      teacher:
-        $("brandTeacher")?.value ||
-        "",
-
-      footer:
-        $("brandFooter")?.value ||
-        ""
-
-    };
-
-
-    localStorage.setItem(
-      "vantaraBrandKit",
-      JSON.stringify(
-        brand
-      )
-    );
-
-
-    setStatus(
-      "brandStatus",
-      "Brand Kit saved on this device.",
-      "success"
-    );
-
-  }
-);
-
-
-/* =========================================================
-   LOAD BRAND KIT
-========================================================= */
-
-function loadBrandKit() {
-
-  try {
-
-    const saved =
-      localStorage.getItem(
-        "vantaraBrandKit"
-      );
-
-
-    if (!saved) return;
-
-
-    const brand =
-      JSON.parse(
-        saved
-      );
-
-
-    if ($("brandName"))
-      $("brandName").value =
-        brand.name || "";
-
-
-    if ($("brandWebsite"))
-      $("brandWebsite").value =
-        brand.website || "";
-
-
-    if ($("brandTeacher"))
-      $("brandTeacher").value =
-        brand.teacher || "";
-
-
-    if ($("brandFooter"))
-      $("brandFooter").value =
-        brand.footer || "";
-
-  } catch (error) {
-
-    console.warn(
-      "Could not load Brand Kit.",
-      error
-    );
-
-  }
-
-}
-
-
-loadBrandKit();
-
-
-/* =========================================================
-   SCRIPT ASSISTANT
-========================================================= */
-
-function generateAssistantScript(
-  text,
-  mode
-) {
-
-  const clean =
-    text.trim();
-
-
-  if (!clean) {
-
-    return "";
-
-  }
-
-
-  switch (mode) {
-
-    case "simple":
-
-      return `
-Explain this topic in a simple,
-beginner-friendly way.
-
-Topic:
-${clean}
-      `.trim();
-
-
-    case "classroom":
-
-      return `
-Students, let's understand this
-topic step by step.
-
-${clean}
-
-Let's look at the concept carefully
-and understand why it works.
-      `.trim();
-
-
-    case "hinglish":
-
-      return `
-Students, aaj hum is topic ko
-very simple Hinglish mein samjhenge.
-
-${clean}
-
-Pehle basic concept samajhte hain,
-phir example ke through dekhenge.
-      `.trim();
-
-
-    case "short":
-
-      return `
-Explain the following topic briefly
-without skipping the main concept:
-
-${clean}
-      `.trim();
-
-
-    case "pause":
-
-      return `
-${clean}
-
-Now, take a moment and think about
-what we have just learned.
-
-Let's move to the next step.
-      `.trim();
-
-
-    default:
-
-      return clean;
-
-  }
-
-}
-
-
-/* =========================================================
-   ASSISTANT BUTTONS
-========================================================= */
-
-document
-  .querySelectorAll(
-    "[data-action]"
-  )
-  .forEach(
-    button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          const text =
-            $("assistantInput")?.value
-              ?.trim();
-
-
-          if (!text) {
-
-            setStatus(
-              "assistantStatus",
-              "Enter some text first.",
-              "error"
-            );
-
-            return;
-
-          }
-
-
-          const mode =
-            button.dataset.action;
-
-
-          const result =
-            generateAssistantScript(
-              text,
-              mode
-            );
-
-
-          if ($("assistantOutput")) {
-
-            $("assistantOutput").value =
-              result;
-
-          }
-
-
-          setStatus(
-            "assistantStatus",
-            "Script generated.",
-            "success"
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-/* =========================================================
-   USE ASSISTANT OUTPUT
-========================================================= */
-
-$("useAssistant")?.addEventListener(
-  "click",
-  () => {
-
-    const output =
-      $("assistantOutput")?.value
-        ?.trim();
-
-
-    if (!output) {
-
-      setStatus(
-        "assistantStatus",
-        "Generate a script first.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    if ($("script")) {
-
-      $("script").value =
-        output;
-
-      $("script").dispatchEvent(
-        new Event("input")
-      );
-
-    }
-
-
-    /* Move to Voiceover tab */
-
-    const voiceTab =
-      document.querySelector(
-        '[data-tab="voiceover"]'
-      );
-
-
-    if (voiceTab) {
-
-      voiceTab.click();
-
-    }
-
-
-    setStatus(
-      "voiceStatus",
-      "Assistant script added to Voiceover Studio.",
-      "success"
-    );
-
-  }
-);
-
-
-/* =========================================================
-   PROJECT LIBRARY
-========================================================= */
-
-let vantaraProjects =
-  JSON.parse(
-    localStorage.getItem(
-      "vantaraProjects"
-    ) || "[]"
-  );
-
-
-function saveProject(
-  name,
-  type,
-  content
-) {
-
-  const project = {
-
-    id:
-      Date.now(),
-
-    name:
-      name ||
-      "Untitled Project",
-
-    type:
-      type ||
-      "Lesson",
-
-    content:
-      content ||
-      "",
-
-    created:
-      new Date().toLocaleString()
-
-  };
-
-
-  vantaraProjects.unshift(
-    project
-  );
-
-
-  /*
-    Keep the local library
-    lightweight.
-  */
-
-  if (
-    vantaraProjects.length > 30
-  ) {
-
-    vantaraProjects =
-      vantaraProjects.slice(
-        0,
-        30
-      );
-
-  }
-
-
-  localStorage.setItem(
-    "vantaraProjects",
-    JSON.stringify(
-      vantaraProjects
-    )
-  );
-
-
-  renderProjects();
-
-}
-
-
-function renderProjects() {
-
-  const container =
-    $("projectLibrary");
-
-
-  if (!container) return;
-
-
-  container.innerHTML = "";
-
-
-  if (
-    vantaraProjects.length === 0
-  ) {
-
-    container.innerHTML = `
-      <div class="empty-state">
-        <strong>No projects yet.</strong>
-        <p>Your saved VANTARA projects will appear here.</p>
-      </div>
-    `;
-
-    return;
-
-  }
-
-
-  vantaraProjects.forEach(
-    project => {
-
-      const card =
-        document.createElement(
-          "div"
-        );
-
-
-      card.className =
-        "project-card";
-
-
-      card.innerHTML = `
-        <strong>
-          ${escapeHTML(project.name)}
-        </strong>
-
-        <span>
-          ${escapeHTML(project.type)}
-        </span>
-
-        <small>
-          ${escapeHTML(project.created)}
-        </small>
-
-        <button
-          type="button"
-          data-open-project="${project.id}">
-          Open
-        </button>
-
-        <button
-          type="button"
-          class="danger-btn"
-          data-delete-project="${project.id}">
-          Delete
-        </button>
       `;
 
 
@@ -3453,172 +2140,1870 @@ function renderProjects() {
   );
 
 
-  /* =======================================================
-     OPEN PROJECT
-  ======================================================= */
+  /*
+    EDIT BUTTONS
+  */
 
   container
     .querySelectorAll(
-      "[data-open-project]"
+      "[data-edit-slide]"
     )
-    .forEach(
-      button => {
+    .forEach(button => {
 
-        button.addEventListener(
-          "click",
-          () => {
+      button.addEventListener(
+        "click",
+        () => {
 
-            const id =
-              Number(
-                button.dataset.openProject
-              );
-
-
-            const project =
-              vantaraProjects.find(
-                item =>
-                  item.id === id
-              );
-
-
-            if (!project)
-              return;
-
-
-            if (
-              $("script")
-            ) {
-
-              $("script").value =
-                project.content || "";
-
-              $("script").dispatchEvent(
-                new Event("input")
-              );
-
-            }
-
-
-            document
-              .querySelector(
-                '[data-tab="voiceover"]'
-              )
-              ?.click();
-
-
-            setStatus(
-              "voiceStatus",
-              `Project "${project.name}" opened.`,
-              "success"
+          const index =
+            Number(
+              button.dataset.editSlide
             );
 
-          }
-        );
 
-      }
-    );
+          editLessonSlide(
+            index
+          );
+
+        }
+      );
+
+    });
 
 
-  /* =======================================================
-     DELETE PROJECT
-  ======================================================= */
+  /*
+    DELETE BUTTONS
+  */
 
   container
     .querySelectorAll(
-      "[data-delete-project]"
+      "[data-delete-slide]"
     )
-    .forEach(
-      button => {
+    .forEach(button => {
 
-        button.addEventListener(
-          "click",
-          () => {
+      button.addEventListener(
+        "click",
+        () => {
 
-            const id =
-              Number(
-                button.dataset.deleteProject
-              );
-
-
-            vantaraProjects =
-              vantaraProjects.filter(
-                item =>
-                  item.id !== id
-              );
-
-
-            localStorage.setItem(
-              "vantaraProjects",
-              JSON.stringify(
-                vantaraProjects
-              )
+          const index =
+            Number(
+              button.dataset.deleteSlide
             );
 
 
-            renderProjects();
+          deleteLessonSlide(
+            index
+          );
 
-          }
-        );
+        }
+      );
 
-      }
-    );
+    });
 
 }
 
 
 /* =========================================================
-   INITIALIZE PROJECT LIBRARY
+   ADD LESSON SLIDE
 ========================================================= */
 
-renderProjects();
+function addLessonSlide() {
+
+  const title =
+    prompt(
+      "Enter slide title:"
+    );
+
+
+  if (
+    title === null
+  ) {
+
+    return;
+
+  }
+
+
+  const content =
+    prompt(
+      "Enter slide content:"
+    );
+
+
+  if (
+    content === null
+  ) {
+
+    return;
+
+  }
+
+
+  const notes =
+    prompt(
+      "Optional teacher notes:"
+    ) || "";
+
+
+  lessonSlides.push({
+
+    title:
+      title.trim(),
+
+    content:
+      content.trim(),
+
+    notes:
+      notes.trim()
+
+  });
+
+
+  renderLessonSlides();
+
+
+  setStatus(
+    lessonStatusId,
+    `Slide ${lessonSlides.length} added.`,
+    "success"
+  );
+
+}
 
 
 /* =========================================================
-   SAVE CURRENT VOICEOVER AS PROJECT
+   ADD SLIDE BUTTON
 ========================================================= */
 
-$("saveProject")?.addEventListener(
-  "click",
+const addSlideButton =
+  $("addSlide");
+
+
+if (addSlideButton) {
+
+  addSlideButton.addEventListener(
+    "click",
+    addLessonSlide
+  );
+
+}
+
+
+/* =========================================================
+   EDIT LESSON SLIDE
+========================================================= */
+
+function editLessonSlide(
+  index
+) {
+
+  if (
+    !lessonSlides[index]
+  ) {
+
+    return;
+
+  }
+
+
+  const slide =
+    lessonSlides[index];
+
+
+  const title =
+    prompt(
+      "Edit slide title:",
+      slide.title
+    );
+
+
+  if (
+    title === null
+  ) {
+
+    return;
+
+  }
+
+
+  const content =
+    prompt(
+      "Edit slide content:",
+      slide.content
+    );
+
+
+  if (
+    content === null
+  ) {
+
+    return;
+
+  }
+
+
+  const notes =
+    prompt(
+      "Edit teacher notes:",
+      slide.notes || ""
+    );
+
+
+  if (
+    notes === null
+  ) {
+
+    return;
+
+  }
+
+
+  lessonSlides[index] = {
+
+    title:
+      title.trim(),
+
+    content:
+      content.trim(),
+
+    notes:
+      notes.trim()
+
+  };
+
+
+  renderLessonSlides();
+
+
+  setStatus(
+    lessonStatusId,
+    `Slide ${index + 1} updated.`,
+    "success"
+  );
+
+}
+
+
+/* =========================================================
+   DELETE LESSON SLIDE
+========================================================= */
+
+function deleteLessonSlide(
+  index
+) {
+
+  if (
+    !lessonSlides[index]
+  ) {
+
+    return;
+
+  }
+
+
+  const confirmed =
+    window.confirm(
+      `Delete Slide ${index + 1}?`
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  lessonSlides.splice(
+    index,
+    1
+  );
+
+
+  renderLessonSlides();
+
+
+  setStatus(
+    lessonStatusId,
+    "Slide deleted."
+  );
+
+}
+
+
+/* =========================================================
+   CLEAR ALL LESSON SLIDES
+========================================================= */
+
+const clearSlidesButton =
+  $("clearSlides");
+
+
+if (clearSlidesButton) {
+
+  clearSlidesButton.addEventListener(
+    "click",
+    () => {
+
+      if (
+        lessonSlides.length === 0
+      ) {
+
+        setStatus(
+          lessonStatusId,
+          "There are no slides to clear."
+        );
+
+        return;
+
+      }
+
+
+      const confirmed =
+        window.confirm(
+          "Delete all lesson slides?"
+        );
+
+
+      if (!confirmed) {
+
+        return;
+
+      }
+
+
+      lessonSlides = [];
+
+
+      renderLessonSlides();
+
+
+      setStatus(
+        lessonStatusId,
+        "All slides cleared."
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   LESSON NAME
+========================================================= */
+
+lessonNameInput?.addEventListener(
+  "input",
   () => {
 
+    const name =
+      lessonNameInput.value.trim();
+
+
+    if (name) {
+
+      setStatus(
+        lessonStatusId,
+        `Building lesson: ${name}`
+      );
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   LESSON TYPE
+========================================================= */
+
+lessonTypeInput?.addEventListener(
+  "change",
+  () => {
+
+    if (!lessonTypeInput)
+      return;
+
+
+    setStatus(
+      lessonStatusId,
+      `Lesson type: ${lessonTypeInput.value}`
+    );
+
+  }
+);
+
+
+/* =========================================================
+   INITIAL LESSON STATE
+========================================================= */
+
+renderLessonSlides();
+/* =========================================================
+   VANTARA EDITOR V2
+   PART 3B
+   LESSON BUILDER NARRATION
+========================================================= */
+
+
+/* =========================================================
+   BUILD COMPLETE LESSON SCRIPT
+========================================================= */
+
+function buildLessonScript() {
+
+  if (
+    lessonSlides.length === 0
+  ) {
+
+    return "";
+
+  }
+
+
+  const lessonName =
+    lessonNameInput?.value.trim() ||
+    "Vantara Education Lesson";
+
+
+  let script =
+    `Welcome to VANTARA EDUCATION. `;
+
+  script +=
+    `Today we are going to learn ${lessonName}. `;
+
+
+  lessonSlides.forEach(
+    (slide, index) => {
+
+      script +=
+        `Slide ${index + 1}. `;
+
+
+      if (slide.title) {
+
+        script +=
+          `${slide.title}. `;
+
+      }
+
+
+      if (slide.content) {
+
+        script +=
+          `${slide.content}. `;
+
+      }
+
+
+      if (slide.notes) {
+
+        script +=
+          `${slide.notes}. `;
+
+      }
+
+
+      /*
+        Small natural transition
+        between slides.
+      */
+
+      if (
+        index <
+        lessonSlides.length - 1
+      ) {
+
+        script +=
+          `Now let's move to the next slide. `;
+
+      }
+
+    });
+
+
+  script +=
+    `Thank you for learning with VANTARA EDUCATION. `;
+
+
+  return script.trim();
+
+}
+
+
+/* =========================================================
+   SHOW GENERATED LESSON SCRIPT
+========================================================= */
+
+function showLessonScript(
+  script
+) {
+
+  /*
+    If a dedicated preview box
+    exists, use it.
+  */
+
+  const preview =
+    $("lessonScriptPreview");
+
+
+  if (preview) {
+
+    preview.value =
+      script;
+
+
+    preview.hidden =
+      false;
+
+    return;
+
+  }
+
+
+  /*
+    Otherwise show the script
+    in a simple dialog.
+  */
+
+  window.alert(
+    script
+  );
+
+}
+
+
+/* =========================================================
+   GENERATE LESSON
+========================================================= */
+
+async function generateLesson() {
+
+  if (
+    lessonSlides.length === 0
+  ) {
+
+    setStatus(
+      lessonStatusId,
+      "Please add at least one slide first.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const lessonName =
+    lessonNameInput?.value.trim();
+
+
+  if (!lessonName) {
+
+    setStatus(
+      lessonStatusId,
+      "Please enter a lesson name.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const generateButton =
+    $("generateLesson");
+
+
+  if (generateButton) {
+
+    generateButton.disabled =
+      true;
+
+    generateButton.textContent =
+      "Preparing Lesson...";
+
+  }
+
+
+  try {
+
     const script =
-      $("script")?.value?.trim();
+      buildLessonScript();
 
 
     if (!script) {
 
-      setStatus(
-        "voiceStatus",
-        "Enter a script before saving.",
-        "error"
+      throw new Error(
+        "Unable to create lesson script."
       );
+
+    }
+
+
+    /*
+      Put the generated script
+      into the main Voiceover
+      Studio as well.
+    */
+
+    if ($("script")) {
+
+      $("script").value =
+        script;
+
+
+      updateCharacterCounter();
+
+
+      displayChunks(
+        splitText(
+          script,
+          1800
+        )
+      );
+
+    }
+
+
+    showLessonScript(
+      script
+    );
+
+
+    setStatus(
+      lessonStatusId,
+      "Lesson script created successfully.",
+      "success"
+    );
+
+
+    /*
+      Switch to Voiceover Studio
+      so the teacher can generate
+      the actual narration.
+    */
+
+    const voiceoverTab =
+      document.querySelector(
+        '[data-tab="voiceover"]'
+      );
+
+
+    if (voiceoverTab) {
+
+      setTimeout(
+        () => {
+
+          voiceoverTab.click();
+
+        },
+        700
+      );
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Lesson generation error:",
+      error
+    );
+
+
+    setStatus(
+      lessonStatusId,
+      error.message ||
+        "Could not generate lesson.",
+      "error"
+    );
+
+  } finally {
+
+    if (generateButton) {
+
+      generateButton.disabled =
+        false;
+
+      generateButton.textContent =
+        "Generate Lesson";
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   GENERATE LESSON BUTTON
+========================================================= */
+
+$("generateLesson")?.addEventListener(
+  "click",
+  generateLesson
+);
+
+
+/* =========================================================
+   EXPORT LESSON SCRIPT
+========================================================= */
+
+const exportLessonButton =
+  $("exportLesson");
+
+
+if (exportLessonButton) {
+
+  exportLessonButton.addEventListener(
+    "click",
+    () => {
+
+      const script =
+        buildLessonScript();
+
+
+      if (!script) {
+
+        setStatus(
+          lessonStatusId,
+          "Create some slides first.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      const blob =
+        new Blob(
+          [script],
+          {
+            type:
+              "text/plain;charset=utf-8"
+          }
+        );
+
+
+      downloadBlob(
+        blob,
+        "vantara-lesson-script.txt"
+      );
+
+
+      setStatus(
+        lessonStatusId,
+        "Lesson script exported.",
+        "success"
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   COPY LESSON SCRIPT
+========================================================= */
+
+const copyLessonButton =
+  $("copyLesson");
+
+
+if (copyLessonButton) {
+
+  copyLessonButton.addEventListener(
+    "click",
+    async () => {
+
+      const script =
+        buildLessonScript();
+
+
+      if (!script) {
+
+        setStatus(
+          lessonStatusId,
+          "Create some slides first.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        await navigator.clipboard.writeText(
+          script
+        );
+
+
+        setStatus(
+          lessonStatusId,
+          "Lesson script copied.",
+          "success"
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        setStatus(
+          lessonStatusId,
+          "Copy failed. Please use Export instead.",
+          "error"
+        );
+
+      }
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   LESSON PREVIEW
+========================================================= */
+
+const previewLessonButton =
+  $("previewLesson");
+
+
+if (previewLessonButton) {
+
+  previewLessonButton.addEventListener(
+    "click",
+    async () => {
+
+      const script =
+        buildLessonScript();
+
+
+      if (!script) {
+
+        setStatus(
+          lessonStatusId,
+          "Create slides first.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      /*
+        Use the same browser
+        voice system as Voiceover
+        Studio.
+      */
+
+      try {
+
+        setStatus(
+          lessonStatusId,
+          "Playing lesson preview..."
+        );
+
+
+        const chunks =
+          splitText(
+            script,
+            1800
+          );
+
+
+        await playVoiceover(
+          chunks
+        );
+
+
+        setStatus(
+          lessonStatusId,
+          "Lesson preview completed.",
+          "success"
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        setStatus(
+          lessonStatusId,
+          error.message ||
+            "Lesson preview failed.",
+          "error"
+        );
+
+      }
+
+    }
+  );
+
+}
+/* =========================================================
+   VANTARA EDITOR V2
+   PART 4A
+   AUDIO EDITOR
+========================================================= */
+
+
+/* =========================================================
+   AUDIO EDITOR STATE
+========================================================= */
+
+let editorAudio =
+  null;
+
+let editorAudioContext =
+  null;
+
+let editorAudioBuffer =
+  null;
+
+
+/* =========================================================
+   AUDIO ELEMENTS
+========================================================= */
+
+const audioFileInput =
+  $("audioFile");
+
+const audioPreview =
+  $("audioPreview");
+
+const volumeControl =
+  $("volume");
+
+const volumeValue =
+  $("volumeValue");
+
+const fadeInControl =
+  $("fadeIn");
+
+const fadeOutControl =
+  $("fadeOut");
+
+const processAudioButton =
+  $("processAudio");
+
+const audioStatusId =
+  "audioStatus";
+
+
+/* =========================================================
+   UPDATE VOLUME DISPLAY
+========================================================= */
+
+function updateVolumeDisplay() {
+
+  if (
+    !volumeControl ||
+    !volumeValue
+  ) {
+
+    return;
+
+  }
+
+
+  volumeValue.textContent =
+    `${volumeControl.value}%`;
+
+}
+
+
+volumeControl?.addEventListener(
+  "input",
+  updateVolumeDisplay
+);
+
+
+updateVolumeDisplay();
+
+
+/* =========================================================
+   LOAD AUDIO FILE
+========================================================= */
+
+audioFileInput?.addEventListener(
+  "change",
+  async event => {
+
+    const file =
+      event.target.files?.[0];
+
+
+    if (!file) {
 
       return;
 
     }
 
 
-    const name =
-      prompt(
-        "Enter project name:",
-        "VANTARA Lesson"
+    try {
+
+      setStatus(
+        audioStatusId,
+        "Loading audio..."
       );
 
 
-    if (!name) return;
+      editorAudio =
+        file;
 
 
-    saveProject(
-      name,
-      "Voiceover",
-      script
+      /*
+        Show the original audio
+        immediately in the preview.
+      */
+
+      if (audioPreview) {
+
+        const url =
+          URL.createObjectURL(
+            file
+          );
+
+
+        audioPreview.src =
+          url;
+
+
+        audioPreview.hidden =
+          false;
+
+      }
+
+
+      /*
+        Decode audio for
+        processing.
+      */
+
+      if (
+        !editorAudioContext
+      ) {
+
+        editorAudioContext =
+          new (
+            window.AudioContext ||
+            window.webkitAudioContext
+          )();
+
+      }
+
+
+      const arrayBuffer =
+        await file.arrayBuffer();
+
+
+      editorAudioBuffer =
+        await editorAudioContext.decodeAudioData(
+          arrayBuffer.slice(0)
+        );
+
+
+      const duration =
+        editorAudioBuffer.duration;
+
+
+      setStatus(
+        audioStatusId,
+        `Audio loaded • ${duration.toFixed(1)} seconds`,
+        "success"
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Audio loading error:",
+        error
+      );
+
+
+      setStatus(
+        audioStatusId,
+        "This audio file could not be processed.",
+        "error"
+      );
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   FADE INPUT VALIDATION
+========================================================= */
+
+function getFadeSeconds(
+  control
+) {
+
+  if (!control) {
+
+    return 0;
+
+  }
+
+
+  const value =
+    Number(
+      control.value
+    );
+
+
+  if (
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+
+    return 0;
+
+  }
+
+
+  return value;
+
+}
+
+
+/* =========================================================
+   PROCESS AUDIO
+========================================================= */
+
+async function processAudio() {
+
+  if (
+    !editorAudioBuffer
+  ) {
+
+    setStatus(
+      audioStatusId,
+      "Please upload an audio file first.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  const button =
+    processAudioButton;
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      "Processing...";
+
+  }
+
+
+  try {
+
+    const input =
+      editorAudioBuffer;
+
+
+    const duration =
+      input.duration;
+
+
+    const sampleRate =
+      input.sampleRate;
+
+
+    const numberOfChannels =
+      input.numberOfChannels;
+
+
+    /*
+      Volume is represented as
+      a percentage.
+    */
+
+    const volume =
+      Math.max(
+        0,
+        Math.min(
+          2,
+          Number(
+            volumeControl?.value || 100
+          ) / 100
+        )
+      );
+
+
+    let fadeIn =
+      getFadeSeconds(
+        fadeInControl
+      );
+
+
+    let fadeOut =
+      getFadeSeconds(
+        fadeOutControl
+      );
+
+
+    /*
+      Prevent fades from being
+      longer than the audio itself.
+    */
+
+    fadeIn =
+      Math.min(
+        fadeIn,
+        duration
+      );
+
+
+    fadeOut =
+      Math.min(
+        fadeOut,
+        duration
+      );
+
+
+    /*
+      Create an OfflineAudioContext
+      so the processed result can
+      be rendered.
+    */
+
+    const offlineContext =
+      new OfflineAudioContext(
+        numberOfChannels,
+        Math.ceil(
+          duration *
+          sampleRate
+        ),
+        sampleRate
+      );
+
+
+    const source =
+      offlineContext.createBufferSource();
+
+
+    source.buffer =
+      input;
+
+
+    const gainNode =
+      offlineContext.createGain();
+
+
+    /*
+      Start with volume zero
+      when fade-in is enabled.
+    */
+
+    if (
+      fadeIn > 0
+    ) {
+
+      gainNode.gain.setValueAtTime(
+        0,
+        0
+      );
+
+      gainNode.gain.linearRampToValueAtTime(
+        volume,
+        fadeIn
+      );
+
+    } else {
+
+      gainNode.gain.setValueAtTime(
+        volume,
+        0
+      );
+
+    }
+
+
+    /*
+      Fade-out.
+    */
+
+    if (
+      fadeOut > 0
+    ) {
+
+      const fadeStart =
+        Math.max(
+          0,
+          duration - fadeOut
+        );
+
+
+      gainNode.gain.setValueAtTime(
+        volume,
+        fadeStart
+      );
+
+
+      gainNode.gain.linearRampToValueAtTime(
+        0,
+        duration
+      );
+
+    }
+
+
+    source
+      .connect(
+        gainNode
+      )
+      .connect(
+        offlineContext.destination
+      );
+
+
+    source.start(
+      0
+    );
+
+
+    const rendered =
+      await offlineContext.startRendering();
+
+
+    /*
+      Convert rendered audio
+      into WAV.
+    */
+
+    const wavBlob =
+      audioBufferToWav(
+        rendered
+      );
+
+
+    const outputUrl =
+      URL.createObjectURL(
+        wavBlob
+      );
+
+
+    if (audioPreview) {
+
+      audioPreview.src =
+        outputUrl;
+
+      audioPreview.hidden =
+        false;
+
+    }
+
+
+    /*
+      Download button.
+    */
+
+    const download =
+      $("audioDownload");
+
+
+    if (download) {
+
+      download.href =
+        outputUrl;
+
+      download.download =
+        "vantara-edited-audio.wav";
+
+      download.hidden =
+        false;
+
+      download.textContent =
+        "Download Edited Audio";
+
+    }
+
+
+    setStatus(
+      audioStatusId,
+      "Audio processed successfully.",
+      "success"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Audio processing error:",
+      error
     );
 
 
     setStatus(
-      "voiceStatus",
-      "Project saved successfully.",
-      "success"
+      audioStatusId,
+      "Audio processing failed.",
+      "error"
+    );
+
+  } finally {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Process Audio";
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   PROCESS BUTTON
+========================================================= */
+
+processAudioButton?.addEventListener(
+  "click",
+  processAudio
+);
+/* =========================================================
+   VANTARA EDITOR V2
+   PART 4B
+   WAV ENCODER + AUDIO DOWNLOAD
+========================================================= */
+
+
+/* =========================================================
+   AUDIO BUFFER → WAV
+========================================================= */
+
+function audioBufferToWav(buffer) {
+
+  const numberOfChannels =
+    buffer.numberOfChannels;
+
+  const sampleRate =
+    buffer.sampleRate;
+
+  const bitDepth =
+    16;
+
+  const samples =
+    buffer.length;
+
+  const blockAlign =
+    numberOfChannels *
+    (bitDepth / 8);
+
+  const byteRate =
+    sampleRate *
+    blockAlign;
+
+  const dataSize =
+    samples *
+    blockAlign;
+
+  const totalSize =
+    44 +
+    dataSize;
+
+
+  const arrayBuffer =
+    new ArrayBuffer(
+      totalSize
+    );
+
+  const view =
+    new DataView(
+      arrayBuffer
+    );
+
+
+  /* -----------------------------------------------------
+     WRITE STRING
+  ----------------------------------------------------- */
+
+  function writeString(
+    offset,
+    text
+  ) {
+
+    for (
+      let i = 0;
+      i < text.length;
+      i++
+    ) {
+
+      view.setUint8(
+        offset + i,
+        text.charCodeAt(i)
+      );
+
+    }
+
+  }
+
+
+  /* -----------------------------------------------------
+     WAV HEADER
+  ----------------------------------------------------- */
+
+  writeString(
+    0,
+    "RIFF"
+  );
+
+  view.setUint32(
+    4,
+    36 + dataSize,
+    true
+  );
+
+  writeString(
+    8,
+    "WAVE"
+  );
+
+  writeString(
+    12,
+    "fmt "
+  );
+
+  view.setUint32(
+    16,
+    16,
+    true
+  );
+
+  view.setUint16(
+    20,
+    1,
+    true
+  );
+
+  view.setUint16(
+    22,
+    numberOfChannels,
+    true
+  );
+
+  view.setUint32(
+    24,
+    sampleRate,
+    true
+  );
+
+  view.setUint32(
+    28,
+    byteRate,
+    true
+  );
+
+  view.setUint16(
+    32,
+    blockAlign,
+    true
+  );
+
+  view.setUint16(
+    34,
+    bitDepth,
+    true
+  );
+
+  writeString(
+    36,
+    "data"
+  );
+
+  view.setUint32(
+    40,
+    dataSize,
+    true
+  );
+
+
+  /* -----------------------------------------------------
+     AUDIO DATA
+  ----------------------------------------------------- */
+
+  const channels = [];
+
+  for (
+    let channel = 0;
+    channel < numberOfChannels;
+    channel++
+  ) {
+
+    channels.push(
+      buffer.getChannelData(
+        channel
+      )
+    );
+
+  }
+
+
+  let offset =
+    44;
+
+
+  for (
+    let sample = 0;
+    sample < samples;
+    sample++
+  ) {
+
+    for (
+      let channel = 0;
+      channel < numberOfChannels;
+      channel++
+    ) {
+
+      let value =
+        channels[channel][sample];
+
+
+      /*
+        Prevent clipping.
+      */
+
+      value =
+        Math.max(
+          -1,
+          Math.min(
+            1,
+            value
+          )
+        );
+
+
+      /*
+        Convert Float32
+        to signed 16-bit PCM.
+      */
+
+      const pcm =
+        value < 0
+          ? value * 0x8000
+          : value * 0x7FFF;
+
+
+      view.setInt16(
+        offset,
+        pcm,
+        true
+      );
+
+
+      offset += 2;
+
+    }
+
+  }
+
+
+  return new Blob(
+    [arrayBuffer],
+    {
+      type:
+        "audio/wav"
+    }
+  );
+
+}
+
+
+/* =========================================================
+   DOWNLOAD EDITED AUDIO
+========================================================= */
+
+const audioDownload =
+  $("audioDownload");
+
+
+if (audioDownload) {
+
+  audioDownload.addEventListener(
+    "click",
+    event => {
+
+      /*
+        The actual download URL
+        is already assigned by
+        processAudio().
+      */
+
+      if (
+        !audioDownload.href ||
+        audioDownload.href ===
+          "#" ||
+        audioDownload.href ===
+          window.location.href
+      ) {
+
+        event.preventDefault();
+
+
+        setStatus(
+          "audioStatus",
+          "Please process the audio first.",
+          "error"
+        );
+
+        return;
+
+      }
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   AUDIO EDITOR RESET
+========================================================= */
+
+const resetAudioButton =
+  $("resetAudio");
+
+
+if (resetAudioButton) {
+
+  resetAudioButton.addEventListener(
+    "click",
+    () => {
+
+      editorAudio =
+        null;
+
+      editorAudioBuffer =
+        null;
+
+
+      if (audioFileInput) {
+
+        audioFileInput.value =
+          "";
+
+      }
+
+
+      if (audioPreview) {
+
+        audioPreview.pause();
+
+        audioPreview.removeAttribute(
+          "src"
+        );
+
+        audioPreview.load();
+
+        audioPreview.hidden =
+          true;
+
+      }
+
+
+      if (audioDownload) {
+
+        audioDownload.hidden =
+          true;
+
+        audioDownload.removeAttribute(
+          "href"
+        );
+
+      }
+
+
+      if (volumeControl) {
+
+        volumeControl.value =
+          100;
+
+      }
+
+
+      if (fadeInControl) {
+
+        fadeInControl.value =
+          0;
+
+      }
+
+
+      if (fadeOutControl) {
+
+        fadeOutControl.value =
+          0;
+
+      }
+
+
+      updateVolumeDisplay();
+
+
+      setStatus(
+        "audioStatus",
+        "Audio editor reset."
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   AUDIO FILE INFORMATION
+========================================================= */
+
+audioFileInput?.addEventListener(
+  "change",
+  () => {
+
+    const file =
+      audioFileInput.files?.[0];
+
+
+    if (!file) {
+
+      return;
+
+    }
+
+
+    const sizeMB =
+      file.size /
+      (1024 * 1024);
+
+
+    setStatus(
+      "audioStatus",
+      `${file.name} • ${sizeMB.toFixed(2)} MB`
     );
 
   }
