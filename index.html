@@ -1,20 +1,166 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VANTARA EDITOR</title><link rel="stylesheet" href="style.css"></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VANTARA EDITOR</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
 <body>
-<header><div class="brand"><div class="logo">V</div><div><b>VANTARA EDITOR</b><small>Voiceover • Audio • Creator Studio</small></div></div><span>V1</span></header>
+
+<header>
+  <div class="brand">
+    <div class="logo">V</div>
+    <div>
+      <b>VANTARA EDITOR</b>
+      <small>Voiceover • Audio • Creator Studio</small>
+    </div>
+  </div>
+  <span>V1</span>
+</header>
+
 <main>
-<section class="hero"><small>VANTARA EDUCATION</small><h1>Your classroom content studio.</h1><p>Create teacher-style voiceovers, combine audio files, and prepare lesson audio from one dashboard.</p></section>
-<nav><button class="tab active" data-tab="voiceover">🎙️ Voiceover Studio</button><button class="tab" data-tab="merge">🎧 Audio Merge</button><button class="tab" data-tab="effect">🔊 Male Voice Effect</button></nav>
 
-<section id="voiceover" class="panel active"><h2>Voiceover Studio</h2><p>Generate Hindi / Hinglish classroom narration.</p>
-<label>Script</label><textarea id="script" maxlength="2500" placeholder="Paste your teacher script here..."></textarea><div class="count"><span></span><span id="count">0 / 2500</span></div>
-<div class="grid"><div><label>Language</label><select id="language"><option value="hi-IN">Hindi / Hinglish</option><option value="en-IN">English (Indian)</option></select></div>
-<div><label>Teacher voice</label><select id="speaker"><option value="shubh">Shubh</option><option value="aditya">Aditya</option><option value="rahul">Rahul</option><option value="rohan">Rohan</option><option value="amit">Amit</option><option value="dev">Dev</option><option value="ratan">Ratan</option><option value="varun">Varun</option><option value="manan">Manan</option><option value="sumit">Sumit</option><option value="kabir">Kabir</option><option value="tarun">Tarun</option><option value="mohit">Mohit</option><option value="rehan">Rehan</option><option value="soham">Soham</option></select></div>
-<div><label>Speed</label><select id="pace"><option value=".9">Slow classroom</option><option value="1" selected>Normal classroom</option><option value="1.1">Slightly fast</option></select></div></div>
-<button id="generate" class="primary">Generate Voiceover</button><div id="voiceStatus" class="status"></div><audio id="voiceAudio" controls hidden></audio><a id="voiceDownload" class="download" hidden>Download voiceover</a></section>
+<section class="hero">
+  <small>VANTARA EDUCATION</small>
+  <h1>Your classroom content studio.</h1>
+  <p>Create teacher-style voiceovers, combine audio files, and prepare lesson audio from one dashboard.</p>
+</section>
 
-<section id="merge" class="panel"><h2>Audio Merge</h2><p>Select slide audio files in the order you want them.</p><input id="mergeFiles" type="file" accept="audio/*" multiple><div id="mergeList"></div><button id="mergeBtn" class="primary">Merge Audio</button><div id="mergeStatus" class="status"></div><a id="mergeDownload" class="download" hidden>Download merged audio</a></section>
+<nav>
+  <button class="tab active" data-tab="voiceover">🎙️ Voiceover Studio</button>
+  <button class="tab" data-tab="merge">🎧 Audio Merge</button>
+  <button class="tab" data-tab="effect">🔊 Male Voice Effect</button>
+</nav>
 
-<section id="effect" class="panel"><h2>Male Voice Effect</h2><p>This is a simple local pitch-down effect, not true AI voice conversion.</p><input id="effectFile" type="file" accept="audio/*"><label>Pitch</label><input id="pitch" type="range" min=".72" max="1" step=".01" value=".82"><span id="pitchValue">0.82×</span><button id="effectBtn" class="primary">Create Male Voice Effect</button><div id="effectStatus" class="status"></div><audio id="effectAudio" controls hidden></audio><a id="effectDownload" class="download" hidden>Download effect audio</a></section>
-</main><footer>VANTARA EDUCATION • VANTARA EDITOR</footer><script src="app.js"></script></body></html>
+<section id="voiceover" class="panel active">
+  <h2>Voiceover Studio</h2>
+  <p>Generate Hindi / Hinglish classroom narration.</p>
+
+  <label>Script</label>
+
+  <!-- Unlimited text input: no maxlength -->
+  <textarea
+    id="script"
+    placeholder="Paste your teacher script here..."
+  ></textarea>
+
+  <div class="grid">
+
+    <div>
+      <label>Language</label>
+      <select id="language">
+        <option value="hi-IN">Hindi / Hinglish</option>
+        <option value="en-IN">English (Indian)</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Teacher voice</label>
+      <select id="speaker">
+        <option value="shubh">Shubh</option>
+        <option value="aditya">Aditya</option>
+        <option value="rahul">Rahul</option>
+        <option value="rohan">Rohan</option>
+        <option value="amit">Amit</option>
+        <option value="dev">Dev</option>
+        <option value="ratan">Ratan</option>
+        <option value="varun">Varun</option>
+        <option value="manan">Manan</option>
+        <option value="sumit">Sumit</option>
+        <option value="kabir">Kabir</option>
+        <option value="tarun">Tarun</option>
+        <option value="mohit">Mohit</option>
+        <option value="rehan">Rehan</option>
+        <option value="soham">Soham</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Speed</label>
+      <select id="pace">
+        <option value=".9">Slow classroom</option>
+        <option value="1" selected>Normal classroom</option>
+        <option value="1.1">Slightly fast</option>
+      </select>
+    </div>
+
+  </div>
+
+  <button id="generate" class="primary">
+    Generate Voiceover
+  </button>
+
+  <div id="voiceStatus" class="status"></div>
+
+  <audio id="voiceAudio" controls hidden></audio>
+
+  <a id="voiceDownload" class="download" hidden>
+    Download voiceover
+  </a>
+
+</section>
+
+<section id="merge" class="panel">
+  <h2>Audio Merge</h2>
+  <p>Select slide audio files in the order you want them.</p>
+
+  <input id="mergeFiles" type="file" accept="audio/*" multiple>
+
+  <div id="mergeList"></div>
+
+  <button id="mergeBtn" class="primary">
+    Merge Audio
+  </button>
+
+  <div id="mergeStatus" class="status"></div>
+
+  <a id="mergeDownload" class="download" hidden>
+    Download merged audio
+  </a>
+</section>
+
+<section id="effect" class="panel">
+  <h2>Male Voice Effect</h2>
+  <p>This is a simple local pitch-down effect, not true AI voice conversion.</p>
+
+  <input id="effectFile" type="file" accept="audio/*">
+
+  <label>Pitch</label>
+
+  <input
+    id="pitch"
+    type="range"
+    min=".72"
+    max="1"
+    step=".01"
+    value=".82"
+  >
+
+  <span id="pitchValue">0.82×</span>
+
+  <button id="effectBtn" class="primary">
+    Create Male Voice Effect
+  </button>
+
+  <div id="effectStatus" class="status"></div>
+
+  <audio id="effectAudio" controls hidden></audio>
+
+  <a id="effectDownload" class="download" hidden>
+    Download effect audio
+  </a>
+
+</section>
+
+</main>
+
+<footer>
+  VANTARA EDUCATION • VANTARA EDITOR
+</footer>
+
+<script src="app.js"></script>
+
+</body>
+</html>
