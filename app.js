@@ -1,961 +1,662 @@
 "use strict";
 
-/* =========================================================
+/* ================================
    VANTARA EDITOR V2
-   COMPLETE CORRECTED app.js
-   No API key required
-   ========================================================= */
+   CORE SYSTEM
+================================ */
 
+const $ = (id) =>
+  document.getElementById(id);
 
-/* =========================================================
-   BASIC HELPERS
-   ========================================================= */
-
-const $ = (id) => document.getElementById(id);
-
-function setStatus(id, message, type = "") {
+function status(id, message, type = "") {
   const el = $(id);
+
   if (!el) return;
 
   el.textContent = message;
   el.className = "status " + type;
 }
 
+/* ================================
+   TABS
+================================ */
+
+document
+  .querySelectorAll(".tab")
+  .forEach((button) => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const target =
+          button.dataset.tab;
+
+        document
+          .querySelectorAll(".tab")
+          .forEach((tab) =>
+            tab.classList.remove(
+              "active"
+            )
+          );
+
+        document
+          .querySelectorAll(".panel")
+          .forEach((panel) =>
+            panel.classList.remove(
+              "active"
+            )
+          );
+
+        button.classList.add(
+          "active"
+        );
+
+        const panel =
+          $(target);
+
+        if (panel) {
+          panel.classList.add(
+            "active"
+          );
+        }
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+      }
+    );
+  });
+
+/* ================================
+   THEME
+================================ */
+
+const themeButton =
+  $("themeToggle") ||
+  $("themeBtn");
+
+if (
+  localStorage.getItem(
+    "vantaraTheme"
+  ) === "light"
+) {
+  document.body.classList.add(
+    "light-mode"
+  );
+}
+
+if (themeButton) {
+
+  themeButton.addEventListener(
+    "click",
+    () => {
+
+      document.body.classList.toggle(
+        "light-mode"
+      );
+
+      localStorage.setItem(
+        "vantaraTheme",
+        document.body.classList.contains(
+          "light-mode"
+        )
+          ? "light"
+          : "dark"
+      );
+    }
+  );
+}
+
+/* ================================
+   BASIC HTML ESCAPE
+================================ */
+
 function escapeHTML(value) {
+
   return String(value || "")
     .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-
-/* =========================================================
-   TAB NAVIGATION
-   IMPORTANT: THIS FIXES THE "OPTIONS NOT OPENING" ISSUE
-   ========================================================= */
-
-function activateTab(target) {
-  if (!target) return;
-
-  const tabs = document.querySelectorAll(".tab");
-  const panels = document.querySelectorAll(".panel");
-
-  tabs.forEach(tab => {
-    tab.classList.toggle(
-      "active",
-      tab.dataset.tab === target
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
     );
-  });
-
-  panels.forEach(panel => {
-    panel.classList.toggle(
-      "active",
-      panel.id === target
-    );
-  });
-
-  const panel = $(target);
-
-  if (panel) {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
-  }
 }
 
-function setupTabs() {
-  document.querySelectorAll(".tab").forEach(button => {
-    button.addEventListener("click", function () {
-      activateTab(this.dataset.tab);
-    });
-  });
-}
+console.log(
+  "VANTARA EDITOR core loaded."
+);
+/* ================================
+   VOICEOVER STUDIO
+   NO API KEY
+================================ */
 
+let voices = [];
+let stopped = false;
 
-/* =========================================================
-   THEME
-   ========================================================= */
+function loadVoices() {
 
-function setupTheme() {
-  const themeButton =
-    $("themeToggle") ||
-    $("themeBtn");
-
-  if (!themeButton) return;
-
-  themeButton.addEventListener("click", () => {
-    document.body.classList.toggle("light-mode");
-
-    const light =
-      document.body.classList.contains("light-mode");
-
-    localStorage.setItem(
-      "vantaraTheme",
-      light ? "light" : "dark"
-    );
-  });
-
-  if (
-    localStorage.getItem("vantaraTheme") === "light"
-  ) {
-    document.body.classList.add("light-mode");
-  }
-}
-
-
-/* =========================================================
-   SPEECH SYNTHESIS
-   ========================================================= */
-
-let availableVoices = [];
-let voiceIsRunning = false;
-let currentSpeechToken = 0;
-
-function getSelectedLanguage() {
-  return $("language")?.value || "hi-IN";
-}
-
-function getSelectedPace() {
-  return Number($("pace")?.value || 1);
-}
-
-function detectVoiceGender(voice) {
-  const name = (
-    voice.name +
-    " " +
-    voice.voiceURI
-  ).toLowerCase();
-
-  const femaleWords = [
-    "female",
-    "zira",
-    "samantha",
-    "karen",
-    "susan",
-    "hazel",
-    "heera",
-    "priya",
-    "neerja",
-    "raveena",
-    "veena",
-    "swara"
-  ];
-
-  const maleWords = [
-    "male",
-    "david",
-    "mark",
-    "daniel",
-    "james",
-    "george",
-    "ravi",
-    "hemant",
-    "madhur",
-    "raj"
-  ];
-
-  if (
-    femaleWords.some(word => name.includes(word))
-  ) {
-    return "female";
-  }
-
-  if (
-    maleWords.some(word => name.includes(word))
-  ) {
-    return "male";
-  }
-
-  return "unknown";
-}
-
-function getSelectedGender() {
-  return $("voiceGender")?.value || "all";
-}
-
-function updateVoiceList() {
-  const select = $("speaker");
-
-  if (!select) return;
-
-  const language = getSelectedLanguage();
-  const languageCode =
-    language.split("-")[0].toLowerCase();
-
-  const gender = getSelectedGender();
-
-  let voices = availableVoices.filter(voice => {
-    if (!voice.lang) return false;
-
-    return voice.lang
-      .toLowerCase()
-      .startsWith(languageCode);
-  });
-
-  if (gender !== "all") {
-    const filtered = voices.filter(
-      voice =>
-        detectVoiceGender(voice) === gender
-    );
-
-    if (filtered.length > 0) {
-      voices = filtered;
-    }
-  }
-
-  if (voices.length === 0) {
-    voices = availableVoices;
-  }
-
-  const oldValue = select.value;
-
-  select.innerHTML = "";
-
-  voices.forEach(voice => {
-    const option =
-      document.createElement("option");
-
-    option.value = voice.name;
-    option.textContent =
-      `${voice.name} (${voice.lang})`;
-
-    select.appendChild(option);
-  });
-
-  if (
-    Array.from(select.options)
-      .some(option => option.value === oldValue)
-  ) {
-    select.value = oldValue;
-  }
-
-  if (voices.length === 0) {
-    setStatus(
-      "voiceStatus",
-      "No browser voices found. Try Chrome.",
-      "warning"
-    );
-  }
-}
-
-function loadBrowserVoices() {
   if (!("speechSynthesis" in window)) {
-    setStatus(
+    status(
       "voiceStatus",
-      "Speech synthesis is not supported in this browser.",
+      "Voice synthesis is not supported.",
       "error"
     );
     return;
   }
 
-  availableVoices =
+  voices =
     window.speechSynthesis.getVoices();
 
-  updateVoiceList();
-}
+  const speaker =
+    $("speaker");
 
-function waitForVoices() {
-  return new Promise(resolve => {
-    if (!("speechSynthesis" in window)) {
-      resolve([]);
-      return;
-    }
+  if (!speaker) return;
 
-    const existing =
-      window.speechSynthesis.getVoices();
+  speaker.innerHTML = "";
 
-    if (existing.length > 0) {
-      resolve(existing);
-      return;
-    }
+  voices.forEach(
+    (voice, index) => {
 
-    let done = false;
-
-    const finish = () => {
-      if (done) return;
-
-      done = true;
-
-      window.speechSynthesis
-        .removeEventListener(
-          "voiceschanged",
-          finish
+      const option =
+        document.createElement(
+          "option"
         );
 
-      resolve(
-        window.speechSynthesis.getVoices()
+      option.value = index;
+
+      option.textContent =
+        `${voice.name} (${voice.lang})`;
+
+      speaker.appendChild(
+        option
       );
-    };
-
-    window.speechSynthesis
-      .addEventListener(
-        "voiceschanged",
-        finish
-      );
-
-    setTimeout(finish, 3000);
-  });
-}
-
-function getSelectedVoice() {
-  const select = $("speaker");
-
-  if (!select) return null;
-
-  return (
-    availableVoices.find(
-      voice =>
-        voice.name === select.value
-    ) || null
+    }
   );
 }
 
-function speakText(text) {
-  return new Promise(async (resolve, reject) => {
-    if (!text || !text.trim()) {
-      resolve();
-      return;
-    }
+if ("speechSynthesis" in window) {
 
-    if (!("speechSynthesis" in window)) {
-      reject(
-        new Error(
-          "Speech synthesis is not available."
-        )
-      );
-      return;
-    }
+  loadVoices();
 
-    try {
-      await waitForVoices();
-
-      const synth =
-        window.speechSynthesis;
-
-      synth.cancel();
-
-      await wait(120);
-
-      const utterance =
-        new SpeechSynthesisUtterance(text);
-
-      utterance.lang =
-        getSelectedLanguage();
-
-      utterance.rate =
-        getSelectedPace();
-
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      const voice =
-        getSelectedVoice();
-
-      if (voice) {
-        utterance.voice = voice;
-      }
-
-      let finished = false;
-
-      const finish = () => {
-        if (finished) return;
-
-        finished = true;
-        resolve();
-      };
-
-      utterance.onend = finish;
-
-      utterance.onerror = event => {
-        if (
-          event.error === "canceled" ||
-          event.error === "interrupted"
-        ) {
-          finish();
-          return;
-        }
-
-        if (finished) return;
-
-        finished = true;
-
-        reject(
-          new Error(
-            "Speech synthesis failed."
-          )
-        );
-      };
-
-      synth.resume();
-      synth.speak(utterance);
-
-      const keepAlive =
-        setInterval(() => {
-          if (
-            !synth.speaking ||
-            finished
-          ) {
-            clearInterval(keepAlive);
-            return;
-          }
-
-          synth.resume();
-        }, 4000);
-
-      utterance.addEventListener(
-        "end",
-        () => {
-          clearInterval(keepAlive);
-        }
-      );
-
-    } catch (error) {
-      reject(error);
-    }
-  });
+  window.speechSynthesis
+    .addEventListener(
+      "voiceschanged",
+      loadVoices
+    );
 }
 
+/* Split long scripts */
 
-/* =========================================================
-   LONG SCRIPT SUPPORT
-   ========================================================= */
-
-function splitText(text, maxLength = 1800) {
-  const clean = text.trim();
-
-  if (!clean) return [];
+function splitScript(
+  text,
+  limit = 1800
+) {
 
   const words =
-    clean.split(/\s+/);
+    text.trim().split(/\s+/);
 
   const chunks = [];
   let current = "";
 
-  for (const word of words) {
-    const test =
-      (current + " " + word).trim();
+  words.forEach((word) => {
 
-    if (test.length <= maxLength) {
-      current = test;
-    } else {
+    if (
+      (current + " " + word)
+        .trim()
+        .length > limit
+    ) {
+
       if (current) {
-        chunks.push(current);
+        chunks.push(
+          current.trim()
+        );
       }
 
       current = word;
+
+    } else {
+
+      current =
+        (current + " " + word)
+          .trim();
     }
-  }
+  });
 
   if (current) {
-    chunks.push(current);
+    chunks.push(
+      current.trim()
+    );
   }
 
   return chunks;
 }
 
-function displayChunks(chunks) {
-  const container = $("chunkLog");
+/* Character counter */
 
-  if (!container) return;
+$("script")?.addEventListener(
+  "input",
+  () => {
 
-  container.innerHTML = "";
+    const text =
+      $("script").value;
 
-  chunks.forEach((chunk, index) => {
-    const item =
-      document.createElement("div");
+    if ($("count")) {
 
-    item.className = "chunk-item";
-
-    item.textContent =
-      `Part ${index + 1}: ${chunk.length} characters`;
-
-    container.appendChild(item);
-  });
-}
-
-
-/* =========================================================
-   VOICEOVER CONTROLS
-   ========================================================= */
-
-async function playVoiceover(chunks) {
-  if (!chunks.length) {
-    throw new Error(
-      "No script available."
-    );
-  }
-
-  voiceIsRunning = true;
-
-  const token =
-    ++currentSpeechToken;
-
-  try {
-    for (
-      let i = 0;
-      i < chunks.length;
-      i++
-    ) {
-      if (
-        token !== currentSpeechToken
-      ) {
-        break;
-      }
-
-      setStatus(
-        "voiceStatus",
-        `Speaking part ${i + 1} of ${chunks.length}...`
-      );
-
-      await speakText(chunks[i]);
-
-      if (
-        i < chunks.length - 1
-      ) {
-        await wait(250);
-      }
-    }
-
-    if (
-      token === currentSpeechToken
-    ) {
-      setStatus(
-        "voiceStatus",
-        "Voiceover completed successfully.",
-        "success"
-      );
-    }
-
-  } catch (error) {
-    console.error(error);
-
-    setStatus(
-      "voiceStatus",
-      error.message ||
-        "Voiceover failed.",
-      "error"
-    );
-
-  } finally {
-    voiceIsRunning = false;
-  }
-}
-
-function stopVoiceover() {
-  currentSpeechToken++;
-
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
-
-  voiceIsRunning = false;
-
-  setStatus(
-    "voiceStatus",
-    "Voiceover stopped."
-  );
-}
-
-async function generateVoiceover() {
-  const script =
-    $("script")?.value.trim();
-
-  if (!script) {
-    setStatus(
-      "voiceStatus",
-      "Please paste your script first.",
-      "error"
-    );
-    return;
-  }
-
-  if (
-    !("speechSynthesis" in window)
-  ) {
-    setStatus(
-      "voiceStatus",
-      "Speech synthesis is not supported in this browser.",
-      "error"
-    );
-    return;
-  }
-
-  const button = $("generate");
-
-  if (button) {
-    button.disabled = true;
-    button.textContent =
-      "Preparing Voiceover...";
-  }
-
-  try {
-    const voices =
-      await waitForVoices();
-
-    availableVoices = voices;
-
-    updateVoiceList();
-
-    const chunks =
-      splitText(script, 1800);
-
-    displayChunks(chunks);
-
-    setStatus(
-      "voiceStatus",
-      `${chunks.length} part${chunks.length === 1 ? "" : "s"} ready.`
-    );
-
-    await playVoiceover(chunks);
-
-  } catch (error) {
-    setStatus(
-      "voiceStatus",
-      error.message ||
-        "Unable to start voiceover.",
-      "error"
-    );
-
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent =
-        "Generate Voiceover";
+      $("count").textContent =
+        `${text.length} characters`;
     }
   }
-}
+);
 
-function previewVoice() {
-  const script =
-    $("script")?.value.trim();
+/* Speak one part */
 
-  if (!script) {
-    setStatus(
-      "voiceStatus",
-      "Enter some text first.",
-      "error"
-    );
-    return;
-  }
+function speakPart(
+  text,
+  number,
+  total
+) {
 
-  stopVoiceover();
+  return new Promise(
+    (resolve) => {
 
-  speakText(
-    splitText(script, 700)[0]
-  ).catch(error => {
-    setStatus(
-      "voiceStatus",
-      error.message,
-      "error"
-    );
-  });
-}
-
-
-/* =========================================================
-   VOICE EVENT SETUP
-   ========================================================= */
-
-function setupVoiceover() {
-  if (
-    "speechSynthesis" in window
-  ) {
-    window.speechSynthesis
-      .addEventListener(
-        "voiceschanged",
-        loadBrowserVoices
-      );
-
-    loadBrowserVoices();
-  }
-
-  $("language")?.addEventListener(
-    "change",
-    () => {
-      updateVoiceList();
-
-      setStatus(
-        "voiceStatus",
-        "Language updated."
-      );
-    }
-  );
-
-  $("voiceGender")?.addEventListener(
-    "change",
-    () => {
-      updateVoiceList();
-    }
-  );
-
-  $("speaker")?.addEventListener(
-    "change",
-    () => {
-      setStatus(
-        "voiceStatus",
-        "Teacher voice selected."
-      );
-    }
-  );
-
-  $("pace")?.addEventListener(
-    "change",
-    () => {
-      setStatus(
-        "voiceStatus",
-        "Speaking speed updated."
-      );
-    }
-  );
-
-  $("generate")?.addEventListener(
-    "click",
-    generateVoiceover
-  );
-
-  $("previewVoice")?.addEventListener(
-    "click",
-    previewVoice
-  );
-
-  const stop =
-    $("stopVoice") ||
-    $("stopVoiceover");
-
-  stop?.addEventListener(
-    "click",
-    stopVoiceover
-  );
-
-  $("clearScript")?.addEventListener(
-    "click",
-    () => {
-      if ($("script")) {
-        $("script").value = "";
-      }
-
-      updateCharacterCounter();
-      displayChunks([]);
-
-      setStatus(
-        "voiceStatus",
-        "Script cleared."
-      );
-    }
-  );
-
-  $("script")?.addEventListener(
-    "input",
-    () => {
-      updateCharacterCounter();
-
-      const chunks =
-        splitText(
-          $("script").value,
-          1800
+      const utterance =
+        new SpeechSynthesisUtterance(
+          text
         );
 
-      displayChunks(chunks);
-    }
-  );
+      utterance.lang =
+        $("language")?.value ||
+        "hi-IN";
 
-  document.addEventListener(
-    "keydown",
-    event => {
+      utterance.rate =
+        Number(
+          $("pace")?.value ||
+          1
+        );
+
+      const speaker =
+        $("speaker");
+
       if (
-        event.key === "Escape" &&
-        voiceIsRunning
+        speaker &&
+        voices[speaker.value]
       ) {
-        stopVoiceover();
+
+        utterance.voice =
+          voices[
+            speaker.value
+          ];
       }
+
+      utterance.onstart =
+        () => {
+
+          status(
+            "voiceStatus",
+            `Speaking part ${number} of ${total}...`,
+            "success"
+          );
+        };
+
+      utterance.onend =
+        resolve;
+
+      utterance.onerror =
+        resolve;
+
+      window.speechSynthesis
+        .speak(
+          utterance
+        );
     }
   );
-
-  setTimeout(
-    loadBrowserVoices,
-    500
-  );
 }
 
-function updateCharacterCounter() {
+/* Generate voiceover */
+
+async function generateVoiceover() {
+
+  const script =
+    $("script");
+
+  if (!script) return;
+
   const text =
-    $("script")?.value || "";
+    script.value.trim();
 
-  const length =
-    text.length;
+  if (!text) {
 
-  if ($("charCount")) {
-    $("charCount").textContent =
-      `${length} characters`;
+    status(
+      "voiceStatus",
+      "Please enter your script.",
+      "error"
+    );
+
+    return;
   }
 
-  if ($("count")) {
-    $("count").textContent =
-      `${length} characters`;
+  window.speechSynthesis.cancel();
+
+  stopped = false;
+
+  const chunks =
+    splitScript(text);
+
+  for (
+    let i = 0;
+    i < chunks.length;
+    i++
+  ) {
+
+    if (stopped) break;
+
+    await speakPart(
+      chunks[i],
+      i + 1,
+      chunks.length
+    );
+  }
+
+  if (stopped) {
+
+    status(
+      "voiceStatus",
+      "Voiceover stopped."
+    );
+
+  } else {
+
+    status(
+      "voiceStatus",
+      "Voiceover completed.",
+      "success"
+    );
   }
 }
 
+/* Generate button */
 
-/* =========================================================
+$("generate")?.addEventListener(
+  "click",
+  generateVoiceover
+);
+
+/* Stop button if present */
+
+$("stopVoiceover")?.addEventListener(
+  "click",
+  () => {
+
+    stopped = true;
+
+    window.speechSynthesis.cancel();
+
+    status(
+      "voiceStatus",
+      "Voiceover stopped."
+    );
+  }
+);
+
+/* Preview */
+
+$("previewVoice")?.addEventListener(
+  "click",
+  () => {
+
+    const text =
+      $("script")?.value.trim();
+
+    if (!text) {
+
+      status(
+        "voiceStatus",
+        "Enter some text first.",
+        "error"
+      );
+
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance =
+      new SpeechSynthesisUtterance(
+        text.substring(0, 500)
+      );
+
+    utterance.lang =
+      $("language")?.value ||
+      "hi-IN";
+
+    utterance.rate =
+      Number(
+        $("pace")?.value ||
+        1
+      );
+
+    const speaker =
+      $("speaker");
+
+    if (
+      speaker &&
+      voices[speaker.value]
+    ) {
+
+      utterance.voice =
+        voices[
+          speaker.value
+        ];
+    }
+
+    window.speechSynthesis.speak(
+      utterance
+    );
+  }
+);
+
+/* Refresh voice list */
+
+$("refreshVoices")?.addEventListener(
+  "click",
+  loadVoices
+);
+
+console.log(
+  "VANTARA Voiceover loaded."
+);
+/* ================================
    LESSON BUILDER
-   ========================================================= */
+================================ */
 
 let lessonSlides = [];
 
+/* Render slides */
+
 function renderLessonSlides() {
-  const container =
-    $("slidesContainer");
 
-  if (!container) return;
+  const box =
+    $("slides");
 
-  container.innerHTML = "";
+  if (!box) return;
 
-  if (lessonSlides.length === 0) {
-    container.innerHTML =
+  if (!lessonSlides.length) {
+
+    box.innerHTML =
       `<div class="empty-state">
         No slides added yet.
-      </div>`;
+       </div>`;
+
     return;
   }
 
-  lessonSlides.forEach(
-    (slide, index) => {
+  box.innerHTML =
+    lessonSlides.map(
+      (slide, index) => `
 
-      const card =
-        document.createElement("div");
+      <div class="lesson-slide">
 
-      card.className =
-        "slide-card";
-
-      card.innerHTML = `
-        <strong>Slide ${index + 1}</strong>
+        <h3>
+          Slide ${index + 1}
+        </h3>
 
         <input
-          class="slide-title"
-          data-index="${index}"
-          value="${escapeHTML(slide.title)}"
+          type="text"
+          value="${escapeHTML(
+            slide.title
+          )}"
+          data-title="${index}"
           placeholder="Slide title"
         >
 
         <textarea
-          class="slide-script"
-          data-index="${index}"
-          placeholder="Slide narration..."
-        >${escapeHTML(slide.script)}</textarea>
+          data-script="${index}"
+          placeholder="Teacher narration..."
+        >${escapeHTML(
+          slide.script
+        )}</textarea>
 
         <div class="slide-actions">
-          <button
-            class="small-btn"
-            data-slide-up="${index}"
-          >↑</button>
 
           <button
             class="small-btn"
-            data-slide-down="${index}"
-          >↓</button>
+            data-up="${index}">
+            ↑
+          </button>
 
           <button
             class="small-btn"
-            data-slide-delete="${index}"
-          >Delete</button>
+            data-down="${index}">
+            ↓
+          </button>
+
+          <button
+            class="small-btn"
+            data-delete="${index}">
+            Delete
+          </button>
+
         </div>
-      `;
 
-      container.appendChild(card);
-    }
-  );
+      </div>
+    `
+    ).join("");
 
-  container
-    .querySelectorAll(".slide-title")
-    .forEach(input => {
-      input.addEventListener(
-        "input",
-        event => {
-          const index =
-            Number(
-              event.target.dataset.index
-            );
+  /* Title editing */
 
-          lessonSlides[index].title =
-            event.target.value;
-        }
-      );
-    });
-
-  container
-    .querySelectorAll(".slide-script")
-    .forEach(input => {
-      input.addEventListener(
-        "input",
-        event => {
-          const index =
-            Number(
-              event.target.dataset.index
-            );
-
-          lessonSlides[index].script =
-            event.target.value;
-        }
-      );
-    });
-
-  container
+  box
     .querySelectorAll(
-      "[data-slide-delete]"
+      "[data-title]"
     )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          const index =
-            Number(
-              button.dataset.slideDelete
-            );
+    .forEach(
+      (input) => {
 
-          lessonSlides.splice(
-            index,
-            1
-          );
+        input.addEventListener(
+          "input",
+          () => {
 
-          renderLessonSlides();
-        }
-      );
-    });
+            const index =
+              Number(
+                input.dataset.title
+              );
 
-  container
+            lessonSlides[index]
+              .title =
+              input.value;
+          }
+        );
+      }
+    );
+
+  /* Script editing */
+
+  box
     .querySelectorAll(
-      "[data-slide-up]"
+      "[data-script]"
     )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          const index =
-            Number(
-              button.dataset.slideUp
+    .forEach(
+      (input) => {
+
+        input.addEventListener(
+          "input",
+          () => {
+
+            const index =
+              Number(
+                input.dataset.script
+              );
+
+            lessonSlides[index]
+              .script =
+              input.value;
+          }
+        );
+      }
+    );
+
+  /* Delete */
+
+  box
+    .querySelectorAll(
+      "[data-delete]"
+    )
+    .forEach(
+      (button) => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const index =
+              Number(
+                button.dataset.delete
+              );
+
+            lessonSlides.splice(
+              index,
+              1
             );
 
-          if (index > 0) {
+            renderLessonSlides();
+          }
+        );
+      }
+    );
+
+  /* Move up */
+
+  box
+    .querySelectorAll(
+      "[data-up]"
+    )
+    .forEach(
+      (button) => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const index =
+              Number(
+                button.dataset.up
+              );
+
+            if (index === 0)
+              return;
+
             [
               lessonSlides[index - 1],
               lessonSlides[index]
@@ -966,27 +667,33 @@ function renderLessonSlides() {
 
             renderLessonSlides();
           }
-        }
-      );
-    });
+        );
+      }
+    );
 
-  container
+  /* Move down */
+
+  box
     .querySelectorAll(
-      "[data-slide-down]"
+      "[data-down]"
     )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          const index =
-            Number(
-              button.dataset.slideDown
-            );
+    .forEach(
+      (button) => {
 
-          if (
-            index <
-            lessonSlides.length - 1
-          ) {
+        button.addEventListener(
+          "click",
+          () => {
+
+            const index =
+              Number(
+                button.dataset.down
+              );
+
+            if (
+              index ===
+              lessonSlides.length - 1
+            ) return;
+
             [
               lessonSlides[index],
               lessonSlides[index + 1]
@@ -997,1146 +704,2047 @@ function renderLessonSlides() {
 
             renderLessonSlides();
           }
-        }
-      );
-    });
-}
-
-function addLessonSlide() {
-  lessonSlides.push({
-    title:
-      `Slide ${lessonSlides.length + 1}`,
-    script: ""
-  });
-
-  renderLessonSlides();
-}
-
-function clearLessonSlides() {
-  lessonSlides = [];
-  renderLessonSlides();
-
-  setStatus(
-    "lessonStatus",
-    "Lesson cleared."
-  );
-}
-
-function buildLessonScript() {
-  return lessonSlides
-    .map((slide, index) => {
-      return (
-        `Slide ${index + 1}. ` +
-        `${slide.title}. ` +
-        `${slide.script}`
-      );
-    })
-    .join("\n\n");
-}
-
-function generateLesson() {
-  const script =
-    buildLessonScript();
-
-  if (!script.trim()) {
-    setStatus(
-      "lessonStatus",
-      "Add some slide content first.",
-      "error"
-    );
-    return;
-  }
-
-  if ($("script")) {
-    $("script").value =
-      script;
-
-    updateCharacterCounter();
-
-    displayChunks(
-      splitText(script, 1800)
-    );
-  }
-
-  activateTab("voiceover");
-
-  setStatus(
-    "voiceStatus",
-    "Lesson script added to Voiceover Studio.",
-    "success"
-  );
-}
-
-function setupLessonBuilder() {
-  $("addSlide")?.addEventListener(
-    "click",
-    addLessonSlide
-  );
-
-  $("clearSlides")?.addEventListener(
-    "click",
-    clearLessonSlides
-  );
-
-  $("generateLesson")?.addEventListener(
-    "click",
-    generateLesson
-  );
-
-  renderLessonSlides();
-}
-
-
-/* =========================================================
-   AUDIO MERGE
-   ========================================================= */
-
-let mergeAudioFiles = [];
-
-function renderMergeFiles() {
-  const container =
-    $("mergeList");
-
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  mergeAudioFiles.forEach(
-    (file, index) => {
-
-      const item =
-        document.createElement("div");
-
-      item.className =
-        "merge-item";
-
-      item.innerHTML = `
-        <strong>${index + 1}. ${escapeHTML(file.name)}</strong>
-        <button
-          class="small-btn"
-          data-remove-merge="${index}"
-        >
-          Remove
-        </button>
-      `;
-
-      container.appendChild(item);
-    }
-  );
-
-  container
-    .querySelectorAll(
-      "[data-remove-merge]"
-    )
-    .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => 
-        {
-          const index =
-            Number(
-              button.dataset.removeMerge
-            );
-
-          mergeAudioFiles.splice(
-            index,
-            1
-          );
-
-          renderMergeFiles();
-        }
-      );
-    });
-}
-
-
-/* =========================================================
-   AUDIO MERGE — FILE SELECTION
-========================================================= */
-
-mergeFilesInput?.addEventListener(
-  "change",
-  event => {
-
-    const files =
-      Array.from(
-        event.target.files || []
-      );
-
-    if (!files.length) {
-      return;
-    }
-
-    /*
-      Add selected files to the
-      existing merge list.
-    */
-
-    files.forEach(file => {
-
-      if (
-        !file.type.startsWith(
-          "audio/"
-        )
-      ) {
-        return;
-      }
-
-      const alreadyAdded =
-        mergeAudioFiles.some(
-          existing =>
-            existing.name === file.name &&
-            existing.size === file.size
         );
-
-      if (!alreadyAdded) {
-        mergeAudioFiles.push(file);
       }
+    );
+}
 
+/* Add slide */
+
+$("addSlide")?.addEventListener(
+  "click",
+  () => {
+
+    lessonSlides.push({
+      title:
+        `Slide ${
+          lessonSlides.length + 1
+        }`,
+
+      script: ""
     });
 
-    renderMergeFiles();
-
-    setStatus(
-      "mergeStatus",
-      `${mergeAudioFiles.length} audio file${
-        mergeAudioFiles.length === 1
-          ? ""
-          : "s"
-      } selected.`
-    );
-
-    /*
-      Allow the same file to be
-      selected again later.
-    */
-
-    event.target.value = "";
+    renderLessonSlides();
   }
 );
 
+/* Clear lesson */
 
-/* =========================================================
-   DECODE AUDIO FILE
-========================================================= */
+$("clearSlides")?.addEventListener(
+  "click",
+  () => {
 
-async function decodeAudioFile(
-  file,
-  audioContext
-) {
+    lessonSlides = [];
 
-  const arrayBuffer =
-    await file.arrayBuffer();
+    renderLessonSlides();
 
-  return await audioContext.decodeAudioData(
-    arrayBuffer
-  );
-}
-
-
-/* =========================================================
-   CALCULATE TOTAL DURATION
-========================================================= */
-
-async function calculateMergeDuration() {
-
-  if (
-    mergeAudioFiles.length === 0
-  ) {
-    return 0;
-  }
-
-  const audioContext =
-    new (
-      window.AudioContext ||
-      window.webkitAudioContext
-    )();
-
-  let totalDuration = 0;
-
-  try {
-
-    for (
-      const file of mergeAudioFiles
-    ) {
-
-      const buffer =
-        await decodeAudioFile(
-          file,
-          audioContext
-        );
-
-      totalDuration +=
-        buffer.duration;
-    }
-
-  } finally {
-
-    await audioContext.close();
-
-  }
-
-  return totalDuration;
-}
-
-
-/* =========================================================
-   MERGE AUDIO FILES
-========================================================= */
-
-async function mergeAudioFilesIntoOne() {
-
-  if (
-    mergeAudioFiles.length === 0
-  ) {
-
-    setStatus(
-      "mergeStatus",
-      "Please select at least one audio file.",
-      "error"
+    status(
+      "lessonStatus",
+      "All slides cleared."
     );
-
-    return;
-
   }
+);
 
+/* Generate lesson */
 
-  const button =
-    $("mergeBtn");
+$("generateLesson")?.addEventListener(
+  "click",
+  () => {
 
+    if (!lessonSlides.length) {
 
-  if (button) {
-
-    button.disabled =
-      true;
-
-    button.textContent =
-      "Merging...";
-
-  }
-
-
-  try {
-
-    setStatus(
-      "mergeStatus",
-      "Loading audio files..."
-    );
-
-
-    const AudioContextClass =
-      window.AudioContext ||
-      window.webkitAudioContext;
-
-
-    if (!AudioContextClass) {
-
-      throw new Error(
-        "Web Audio is not supported in this browser."
+      status(
+        "lessonStatus",
+        "Add at least one slide.",
+        "error"
       );
 
+      return;
     }
 
-
-    const audioContext =
-      new AudioContextClass();
-
-
-    const buffers = [];
-
-
-    /*
-      Decode every selected file.
-    */
-
-    for (
-      let i = 0;
-      i < mergeAudioFiles.length;
-      i++
-    ) {
-
-      const file =
-        mergeAudioFiles[i];
-
-
-      setStatus(
-        "mergeStatus",
-        `Reading ${i + 1} of ${mergeAudioFiles.length}: ${file.name}`
-      );
-
-
-      const buffer =
-        await decodeAudioFile(
-          file,
-          audioContext
-        );
-
-
-      buffers.push(
-        buffer
-      );
-
-    }
-
-
-    /*
-      Find the maximum number
-      of channels.
-    */
-
-    const numberOfChannels =
-      Math.max(
-        ...buffers.map(
-          buffer =>
-            buffer.numberOfChannels
+    const completeScript =
+      lessonSlides
+        .map(
+          (slide, index) =>
+            `Slide ${
+              index + 1
+            }: ${slide.title}\n${
+              slide.script
+            }`
         )
+        .join("\n\n");
+
+    if ($("script")) {
+
+      $("script").value =
+        completeScript;
+
+      $("script").dispatchEvent(
+        new Event("input")
       );
-
-
-    /*
-      Use the first buffer's
-      sample rate.
-    */
-
-    const sampleRate =
-      buffers[0].sampleRate;
-
-
-    /*
-      Calculate total samples.
-    */
-
-    const totalLength =
-      buffers.reduce(
-        (
-          total,
-          buffer
-        ) =>
-          total +
-          Math.ceil(
-            buffer.duration *
-            sampleRate
-          ),
-        0
-      );
-
-
-    /*
-      Create the final merged
-      AudioBuffer.
-    */
-
-    const mergedBuffer =
-      audioContext.createBuffer(
-        numberOfChannels,
-        totalLength,
-        sampleRate
-      );
-
-
-    let offset =
-      0;
-
-
-    /*
-      Copy each audio file
-      one after another.
-    */
-
-    for (
-      const buffer of buffers
-    ) {
-
-      const length =
-        buffer.length;
-
-
-      for (
-        let channel = 0;
-        channel <
-          numberOfChannels;
-        channel++
-      ) {
-
-        const destination =
-          mergedBuffer.getChannelData(
-            channel
-          );
-
-
-        if (
-          channel <
-          buffer.numberOfChannels
-        ) {
-
-          const source =
-            buffer.getChannelData(
-              channel
-            );
-
-
-          destination.set(
-            source,
-            offset
-          );
-
-        } else {
-
-          /*
-            If the current file
-            has fewer channels,
-            duplicate channel 0.
-          */
-
-          const source =
-            buffer.getChannelData(
-              0
-            );
-
-
-          destination.set(
-            source,
-            offset
-          );
-
-        }
-
-      }
-
-
-      offset +=
-        length;
-
     }
 
-
-    /*
-      Convert merged AudioBuffer
-      into WAV.
-    */
-
-    const wavBlob =
-      audioBufferToWav(
-        mergedBuffer
-      );
-
-
-    /*
-      Release AudioContext.
-    */
-
-    await audioContext.close();
-
-
-    /*
-      Create download URL.
-    */
-
-    if (
-      mergeDownload?.href
-    ) {
-
-      URL.revokeObjectURL(
-        mergeDownload.href
-      );
-
-    }
-
-
-    const url =
-      URL.createObjectURL(
-        wavBlob
-      );
-
-
-    if (mergeDownload) {
-
-      mergeDownload.href =
-        url;
-
-      mergeDownload.download =
-        "VANTARA_Merged_Audio.wav";
-
-      mergeDownload.hidden =
-        false;
-
-      mergeDownload.textContent =
-        "Download Merged Audio";
-
-    }
-
-
-    setStatus(
-      "mergeStatus",
-      `Successfully merged ${mergeAudioFiles.length} audio files.`,
+    status(
+      "lessonStatus",
+      "Lesson sent to Voiceover Studio.",
       "success"
     );
 
+    /* Open Voiceover tab */
+
+    document
+      .querySelector(
+        '[data-tab="voiceover"]'
+      )
+      ?.click();
+  }
+);
+
+/* Initial display */
+
+renderLessonSlides();
+
+console.log(
+  "VANTARA Lesson Builder loaded."
+);
+/* ================================
+   AUDIO EDITOR
+================================ */
+
+let editorBuffer = null;
+
+/* Load audio file */
+
+$("audioFile")?.addEventListener(
+  "change",
+  async () => {
+
+    const file =
+      $("audioFile").files?.[0];
+
+    if (!file) return;
+
+    try {
+
+      const data =
+        await file.arrayBuffer();
+
+      const context =
+        new AudioContext();
+
+      editorBuffer =
+        await context.decodeAudioData(
+          data
+        );
+
+      await context.close();
+
+      status(
+        "audioStatus",
+        `${file.name} loaded successfully.`,
+        "success"
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      status(
+        "audioStatus",
+        "Could not load this audio file.",
+        "error"
+      );
+    }
+  }
+);
+
+/* Volume display */
+
+$("volume")?.addEventListener(
+  "input",
+  () => {
+
+    if ($("volumeValue")) {
+
+      $("volumeValue").textContent =
+        `${$("volume").value}%`;
+    }
+  }
+);
+
+/* WAV encoder */
+
+function bufferToWav(buffer) {
+
+  const channels =
+    buffer.numberOfChannels;
+
+  const sampleRate =
+    buffer.sampleRate;
+
+  const samples =
+    buffer.length;
+
+  const dataSize =
+    samples *
+    channels *
+    2;
+
+  const arrayBuffer =
+    new ArrayBuffer(
+      44 + dataSize
+    );
+
+  const view =
+    new DataView(
+      arrayBuffer
+    );
+
+  function writeText(
+    offset,
+    text
+  ) {
+
+    for (
+      let i = 0;
+      i < text.length;
+      i++
+    ) {
+
+      view.setUint8(
+        offset + i,
+        text.charCodeAt(i)
+      );
+    }
+  }
+
+  writeText(0, "RIFF");
+
+  view.setUint32(
+    4,
+    36 + dataSize,
+    true
+  );
+
+  writeText(8, "WAVE");
+
+  writeText(12, "fmt ");
+
+  view.setUint32(
+    16,
+    16,
+    true
+  );
+
+  view.setUint16(
+    20,
+    1,
+    true
+  );
+
+  view.setUint16(
+    22,
+    channels,
+    true
+  );
+
+  view.setUint32(
+    24,
+    sampleRate,
+    true
+  );
+
+  view.setUint32(
+    28,
+    sampleRate *
+      channels *
+      2,
+    true
+  );
+
+  view.setUint16(
+    32,
+    channels * 2,
+    true
+  );
+
+  view.setUint16(
+    34,
+    16,
+    true
+  );
+
+  writeText(
+    36,
+    "data"
+  );
+
+  view.setUint32(
+    40,
+    dataSize,
+    true
+  );
+
+  const channelData = [];
+
+  for (
+    let c = 0;
+    c < channels;
+    c++
+  ) {
+
+    channelData.push(
+      buffer.getChannelData(c)
+    );
+  }
+
+  let offset = 44;
+
+  for (
+    let i = 0;
+    i < samples;
+    i++
+  ) {
+
+    for (
+      let c = 0;
+      c < channels;
+      c++
+    ) {
+
+      let sample =
+        channelData[c][i];
+
+      sample =
+        Math.max(
+          -1,
+          Math.min(
+            1,
+            sample
+          )
+        );
+
+      const value =
+        sample < 0
+          ? sample * 32768
+          : sample * 32767;
+
+      view.setInt16(
+        offset,
+        value,
+        true
+      );
+
+      offset += 2;
+    }
+  }
+
+  return new Blob(
+    [arrayBuffer],
+    {
+      type: "audio/wav"
+    }
+  );
+}
+
+/* Process audio */
+
+$("processAudio")?.addEventListener(
+  "click",
+  async () => {
+
+    if (!editorBuffer) {
+
+      status(
+        "audioStatus",
+        "Please select an audio file first.",
+        "error"
+      );
+
+      return;
+    }
+
+    try {
+
+      const volume =
+        Number(
+          $("volume")?.value ||
+          100
+        ) / 100;
+
+      const fadeIn =
+        Number(
+          $("fadeIn")?.value ||
+          0
+        );
+
+      const fadeOut =
+        Number(
+          $("fadeOut")?.value ||
+          0
+        );
+
+      const context =
+        new OfflineAudioContext(
+          editorBuffer.numberOfChannels,
+          editorBuffer.length,
+          editorBuffer.sampleRate
+        );
+
+      const source =
+        context.createBufferSource();
+
+      source.buffer =
+        editorBuffer;
+
+      const gain =
+        context.createGain();
+
+      gain.gain.setValueAtTime(
+        0,
+        0
+      );
+
+      gain.gain.linearRampToValueAtTime(
+        volume,
+        Math.min(
+          fadeIn,
+          editorBuffer.duration
+        )
+      );
+
+      const fadeStart =
+        Math.max(
+          0,
+          editorBuffer.duration -
+            fadeOut
+        );
+
+      gain.gain.setValueAtTime(
+        volume,
+        fadeStart
+      );
+
+      gain.gain.linearRampToValueAtTime(
+        0,
+        editorBuffer.duration
+      );
+
+      source.connect(gain);
+
+      gain.connect(
+        context.destination
+      );
+
+      source.start();
+
+      const result =
+        await context.startRendering();
+
+      const blob =
+        bufferToWav(result);
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+      if ($("audioPreview")) {
+
+        $("audioPreview").src =
+          url;
+
+        $("audioPreview").hidden =
+          false;
+      }
+
+      if ($("audioDownload")) {
+
+        $("audioDownload").href =
+          url;
+
+        $("audioDownload").download =
+          "vantara-edited-audio.wav";
+
+        $("audioDownload").hidden =
+          false;
+      }
+
+      status(
+        "audioStatus",
+        "Audio processed successfully.",
+        "success"
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      status(
+        "audioStatus",
+        "Audio processing failed.",
+        "error"
+      );
+    }
+  }
+);
+
+console.log(
+  "VANTARA Audio Editor loaded."
+);
+/* ================================
+   AUDIO MERGE
+================================ */
+
+let mergeAudioFiles = [];
+
+/* Select audio files */
+
+$("mergeFiles")?.addEventListener(
+  "change",
+  () => {
+
+    mergeAudioFiles =
+      Array.from(
+        $("mergeFiles").files || []
+      );
+
+    renderMergeList();
+  }
+);
+
+/* Show selected files */
+
+function renderMergeList() {
+
+  const box =
+    $("mergeList");
+
+  if (!box) return;
+
+  if (!mergeAudioFiles.length) {
+
+    box.innerHTML =
+      `<div class="empty-state">
+        No audio files selected.
+       </div>`;
+
+    return;
+  }
+
+  box.innerHTML =
+    mergeAudioFiles
+      .map(
+        (file, index) => `
+          <div class="merge-item">
+            <span>
+              ${index + 1}.
+              ${escapeHTML(file.name)}
+            </span>
+          </div>
+        `
+      )
+      .join("");
+}
+
+/* Convert AudioBuffer to WAV */
+
+function audioBufferToWav(buffer) {
+
+  const channels =
+    buffer.numberOfChannels;
+
+  const sampleRate =
+    buffer.sampleRate;
+
+  const length =
+    buffer.length;
+
+  const dataSize =
+    length *
+    channels *
+    2;
+
+  const arrayBuffer =
+    new ArrayBuffer(
+      44 + dataSize
+    );
+
+  const view =
+    new DataView(
+      arrayBuffer
+    );
+
+  function writeString(
+    offset,
+    text
+  ) {
+
+    for (
+      let i = 0;
+      i < text.length;
+      i++
+    ) {
+
+      view.setUint8(
+        offset + i,
+        text.charCodeAt(i)
+      );
+    }
+  }
+
+  writeString(
+    0,
+    "RIFF"
+  );
+
+  view.setUint32(
+    4,
+    36 + dataSize,
+    true
+  );
+
+  writeString(
+    8,
+    "WAVE"
+  );
+
+  writeString(
+    12,
+    "fmt "
+  );
+
+  view.setUint32(
+    16,
+    16,
+    true
+  );
+
+  view.setUint16(
+    20,
+    1,
+    true
+  );
+
+  view.setUint16(
+    22,
+    channels,
+    true
+  );
+
+  view.setUint32(
+    24,
+    sampleRate,
+    true
+  );
+
+  view.setUint32(
+    28,
+    sampleRate *
+      channels *
+      2,
+    true
+  );
+
+  view.setUint16(
+    32,
+    channels * 2,
+    true
+  );
+
+  view.setUint16(
+    34,
+    16,
+    true
+  );
+
+  writeString(
+    36,
+    "data"
+  );
+
+  view.setUint32(
+    40,
+    dataSize,
+    true
+  );
+
+  let offset = 44;
+
+  for (
+    let i = 0;
+    i < length;
+    i++
+  ) {
+
+    for (
+      let c = 0;
+      c < channels;
+      c++
+    ) {
+
+      let sample =
+        buffer.getChannelData(c)[i];
+
+      sample =
+        Math.max(
+          -1,
+          Math.min(
+            1,
+            sample
+          )
+        );
+
+      view.setInt16(
+        offset,
+        sample < 0
+          ? sample * 32768
+          : sample * 32767,
+        true
+      );
+
+      offset += 2;
+    }
+  }
+
+  return new Blob(
+    [arrayBuffer],
+    {
+      type: "audio/wav"
+    }
+  );
+}
+
+/* Merge audio */
+
+$("mergeBtn")?.addEventListener(
+  "click",
+  async () => {
+
+    if (
+      !mergeAudioFiles.length
+    ) {
+
+      status(
+        "mergeStatus",
+        "Please select audio files first.",
+        "error"
+      );
+
+      return;
+    }
+
+    try {
+
+      status(
+        "mergeStatus",
+        "Preparing audio files..."
+      );
+
+      const audioContext =
+        new AudioContext();
+
+      const buffers = [];
+
+      for (
+        let i = 0;
+        i < mergeAudioFiles.length;
+        i++
+      ) {
+
+        status(
+          "mergeStatus",
+          `Loading audio ${i + 1} of ${mergeAudioFiles.length}...`
+        );
+
+        const data =
+          await mergeAudioFiles[i]
+            .arrayBuffer();
+
+        const buffer =
+          await audioContext
+            .decodeAudioData(
+              data
+            );
+
+        buffers.push(buffer);
+      }
+
+      await audioContext.close();
+
+      /* Find longest sample rate */
+
+      const sampleRate =
+        buffers[0].sampleRate;
+
+      const channels =
+        Math.max(
+          ...buffers.map(
+            (buffer) =>
+              buffer.numberOfChannels
+          )
+        );
+
+      /* Calculate total length */
+
+      let totalLength = 0;
+
+      buffers.forEach(
+        (buffer) => {
+
+          totalLength +=
+            Math.ceil(
+              buffer.duration *
+              sampleRate
+            );
+        }
+      );
+
+      const offline =
+        new OfflineAudioContext(
+          channels,
+          totalLength,
+          sampleRate
+        );
+
+      let position = 0;
+
+      buffers.forEach(
+        (buffer) => {
+
+          const source =
+            offline.createBufferSource();
+
+          source.buffer =
+            buffer;
+
+          source.connect(
+            offline.destination
+          );
+
+          source.start(
+            position /
+              sampleRate
+          );
+
+          position +=
+            Math.ceil(
+              buffer.duration *
+              sampleRate
+            );
+        }
+      );
+
+      status(
+        "mergeStatus",
+        "Merging audio..."
+      );
+
+      const merged =
+        await offline.startRendering();
+
+      const blob =
+        audioBufferToWav(
+          merged
+        );
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+      if ($("mergeDownload")) {
+
+        $("mergeDownload").href =
+          url;
+
+        $("mergeDownload").download =
+          "VANTARA-Merged-Audio.wav";
+
+        $("mergeDownload").hidden =
+          false;
+      }
+
+      status(
+        "mergeStatus",
+        "All audio files merged successfully.",
+        "success"
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      status(
+        "mergeStatus",
+        "Could not merge the audio files.",
+        "error"
+      );
+    }
+  }
+);
+
+renderMergeList();
+
+console.log(
+  "VANTARA Audio Merge loaded."
+);
+/* ================================
+   BRAND KIT
+================================ */
+
+function loadBrandKit() {
+
+  const saved =
+    localStorage.getItem(
+      "vantaraBrandKit"
+    );
+
+  if (!saved) return;
+
+  try {
+
+    const brand =
+      JSON.parse(saved);
+
+    if ($("brandName"))
+      $("brandName").value =
+        brand.name || "";
+
+    if ($("brandWebsite"))
+      $("brandWebsite").value =
+        brand.website || "";
+
+    if ($("brandTeacher"))
+      $("brandTeacher").value =
+        brand.teacher || "";
+
+    if ($("brandFooter"))
+      $("brandFooter").value =
+        brand.footer || "";
 
   } catch (error) {
 
     console.error(
-      "Audio merge error:",
+      "Brand data error:",
       error
     );
-
-
-    setStatus(
-      "mergeStatus",
-      error.message ||
-        "Unable to merge audio files.",
-      "error"
-    );
-
-  } finally {
-
-    if (button) {
-
-      button.disabled =
-        false;
-
-      button.textContent =
-        "Merge Audio";
-
-    }
-
   }
-
 }
 
-
-/* =========================================================
-   MERGE BUTTON
-========================================================= */
-
-$("mergeBtn")?.addEventListener(
-  "click",
-  mergeAudioFilesIntoOne
-);
-
-
-/* =========================================================
-   CLEAR MERGE LIST
-========================================================= */
-
-function clearMergeFiles() {
-
-  mergeAudioFiles.length =
-    0;
-
-  renderMergeFiles();
-
-  if (mergeDownload) {
-
-    mergeDownload.hidden =
-      true;
-
-    mergeDownload.removeAttribute(
-      "href"
-    );
-
-  }
-
-  setStatus(
-    "mergeStatus",
-    "Merge list cleared."
-  );
-
-}
-
-
-/*
-  Optional clear button.
-  Works if your HTML contains:
-  id="clearMerge"
-*/
-
-$("clearMerge")?.addEventListener(
-  "click",
-  clearMergeFiles
-);
-
-
-/* =========================================================
-   MOVE MERGE FILE UP
-========================================================= */
-
-function moveMergeFileUp(
-  index
-) {
-
-  if (
-    index <= 0 ||
-    index >=
-      mergeAudioFiles.length
-  ) {
-    return;
-  }
-
-
-  const temp =
-    mergeAudioFiles[index];
-
-
-  mergeAudioFiles[index] =
-    mergeAudioFiles[
-      index - 1
-    ];
-
-
-  mergeAudioFiles[
-    index - 1
-  ] =
-    temp;
-
-
-  renderMergeFiles();
-
-}
-
-
-/* =========================================================
-   MOVE MERGE FILE DOWN
-========================================================= */
-
-function moveMergeFileDown(
-  index
-) {
-
-  if (
-    index < 0 ||
-    index >=
-      mergeAudioFiles.length - 1
-  ) {
-    return;
-  }
-
-
-  const temp =
-    mergeAudioFiles[index];
-
-
-  mergeAudioFiles[index] =
-    mergeAudioFiles[
-      index + 1
-    ];
-
-
-  mergeAudioFiles[
-    index + 1
-  ] =
-    temp;
-
-
-  renderMergeFiles();
-
-}
-
-
-/* =========================================================
-   OPTIONAL UP / DOWN BUTTONS
-========================================================= */
-
-mergeList?.addEventListener(
-  "click",
-  event => {
-
-    const upButton =
-      event.target.closest(
-        "[data-move-up]"
-      );
-
-
-    const downButton =
-      event.target.closest(
-        "[data-move-down]"
-      );
-
-
-    if (upButton) {
-
-      moveMergeFileUp(
-        Number(
-          upButton.dataset.moveUp
-        )
-      );
-
-    }
-
-
-    if (downButton) {
-
-      moveMergeFileDown(
-        Number(
-          downButton.dataset.moveDown
-        )
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   DRAG & DROP MERGE ORDER
-========================================================= */
-
-let draggedMergeIndex =
-  null;
-
-
-function enableMergeDragOrdering() {
-
-  if (!mergeList) {
-    return;
-  }
-
-
-  const items =
-    mergeList.querySelectorAll(
-      ".merge-item"
-    );
-
-
-  items.forEach(
-    (item, index) => {
-
-      item.draggable =
-        true;
-
-
-      item.addEventListener(
-        "dragstart",
-        () => {
-
-          draggedMergeIndex =
-            index;
-
-          item.classList.add(
-            "dragging"
-          );
-
-        }
-      );
-
-
-      item.addEventListener(
-        "dragend",
-        () => {
-
-          draggedMergeIndex =
-            null;
-
-          item.classList.remove(
-            "dragging"
-          );
-
-        }
-      );
-
-
-      item.addEventListener(
-        "dragover",
-        event => {
-
-          event.preventDefault();
-
-        }
-      );
-
-
-      item.addEventListener(
-        "drop",
-        event => {
-
-          event.preventDefault();
-
-
-          const targetIndex =
-            index;
-
-
-          if (
-            draggedMergeIndex ===
-              null ||
-            draggedMergeIndex ===
-              targetIndex
-          ) {
-            return;
-          }
-
-
-          const movedFile =
-            mergeAudioFiles.splice(
-              draggedMergeIndex,
-              1
-            )[0];
-
-
-          mergeAudioFiles.splice(
-            targetIndex,
-            0,
-            movedFile
-          );
-
-
-          renderMergeFiles();
-
-        }
-      );
-
-    }
-  );
-
-}
-
-
-/*
-  Re-enable drag ordering
-  whenever the list changes.
-*/
-
-const originalRenderMergeFiles =
-  renderMergeFiles;
-
-
-renderMergeFiles =
-  function () {
-
-    originalRenderMergeFiles();
-
-    enableMergeDragOrdering();
-
-  };
-
-
-renderMergeFiles();
-
-
-/* =========================================================
-   BRAND KIT
-========================================================= */
-
-const defaultBrandSettings = {
-
-  name:
-    "VANTARA EDUCATION",
-
-  website:
-    "https://vantara-education.vercel.app/",
-
-  teacher:
-    "VANTARA EDUCATION",
-
-  footer:
-    "VANTARA EDUCATION • OLYMPIAD HUB"
-
-};
-
-
-let brandSettings = {
-
-  ...defaultBrandSettings
-
-};
-
-
-try {
-
-  const savedBrand =
-    localStorage.getItem(
-      "vantaraBrandSettings"
-    );
-
-
-  if (savedBrand) {
-
-    brandSettings =
-      {
-        ...defaultBrandSettings,
-        ...JSON.parse(
-          savedBrand
-        )
-      };
-
-  }
-
-} catch (error) {
-
-  console.warn(
-    "Unable to load brand settings.",
-    error
-  );
-
-}
-
-
-/* =========================================================
-   APPLY BRAND SETTINGS
-========================================================= */
-
-function applyBrandSettings() {
-
-  const brandName =
-    $("brandName");
-
-
-  const brandWebsite =
-    $("brandWebsite");
-
-
-  const brandTeacher =
-    $("brandTeacher");
-
-
-  const brandFooter =
-    $("brandFooter");
-
-
-  if (brandName) {
-
-    brandName.value =
-      brandSettings.name;
-
-  }
-
-
-  if (brandWebsite) {
-
-    brandWebsite.value =
-      brandSettings.website;
-
-  }
-
-
-  if (brandTeacher) {
-
-    brandTeacher.value =
-      brandSettings.teacher;
-
-  }
-
-
-  if (brandFooter) {
-
-    brandFooter.value =
-      brandSettings.footer;
-
-  }
-
-
-  /*
-    Update visible footer.
-  */
-
-  const footer =
-    document.querySelector(
-      "footer"
-    );
-
-
-  if (footer) {
-
-    footer.textContent =
-      brandSettings.footer;
-
-  }
-
-}
-
-
-/* =========================================================
-   SAVE BRAND SETTINGS
-========================================================= */
+/* Save brand */
 
 $("saveBrand")?.addEventListener(
   "click",
   () => {
 
-    brandSettings = {
+    const brand = {
 
       name:
-        $("brandName")?.value.trim() ||
-        defaultBrandSettings.name,
+        $("brandName")?.value ||
+        "VANTARA EDUCATION",
 
       website:
-        $("brandWebsite")?.value.trim() ||
-        defaultBrandSettings.website,
+        $("brandWebsite")?.value ||
+        "",
 
       teacher:
-        $("brandTeacher")?.value.trim() ||
-        defaultBrandSettings.teacher,
+        $("brandTeacher")?.value ||
+        "",
 
       footer:
-        $("brandFooter")?.value.trim() ||
-        defaultBrandSettings.footer
-
+        $("brandFooter")?.value ||
+        ""
     };
 
-
     localStorage.setItem(
-      "vantaraBrandSettings",
-      JSON.stringify(
-        brandSettings
-      )
+      "vantaraBrandKit",
+      JSON.stringify(brand)
     );
 
-
-    applyBrandSettings();
-
-
-    setStatus(
+    status(
       "brandStatus",
-      "Brand settings saved successfully.",
+      "Brand Kit saved successfully.",
       "success"
     );
-
   }
 );
 
+loadBrandKit();
 
-/* =========================================================
-   RESET BRAND SETTINGS
-========================================================= */
 
-$("resetBrand")?.addEventListener(
+/* ================================
+   PROJECT LIBRARY
+================================ */
+
+let vantaraProjects =
+  JSON.parse(
+    localStorage.getItem(
+      "vantaraProjects"
+    ) || "[]"
+  );
+
+/* Save project */
+
+$("saveProject")?.addEventListener(
   "click",
   () => {
 
-    brandSettings =
-      {
-        ...defaultBrandSettings
-      };
+    const name =
+      $("projectName")?.value.trim();
 
+    if (!name) {
+
+      status(
+        "projectStatus",
+        "Enter a project name.",
+        "error"
+      );
+
+      return;
+    }
+
+    const project = {
+
+      id:
+        Date.now(),
+
+      name:
+        name,
+
+      created:
+        new Date()
+          .toLocaleString(),
+
+      lesson:
+        lessonSlides
+          .map(
+            (slide) => ({
+              title:
+                slide.title,
+
+              script:
+                slide.script
+            })
+          ),
+
+      brand:
+        localStorage.getItem(
+          "vantaraBrandKit"
+        )
+    };
+
+    vantaraProjects.unshift(
+      project
+    );
 
     localStorage.setItem(
-      "vantaraBrandSettings",
+      "vantaraProjects",
       JSON.stringify(
-        brandSettings
+        vantaraProjects
       )
     );
 
+    renderProjects();
 
-    applyBrandSettings();
-
-
-    setStatus(
-      "brandStatus",
-      "Brand settings restored."
+    status(
+      "projectStatus",
+      "Project saved successfully.",
+      "success"
     );
 
+    if ($("projectName")) {
+      $("projectName").value = "";
+    }
   }
 );
 
 
-applyBrandSettings();
+/* Render projects */
+
+function renderProjects(
+  search = ""
+) {
+
+  const box =
+    $("projectList");
+
+  if (!box) return;
+
+  const query =
+    search
+      .trim()
+      .toLowerCase();
+
+  const filtered =
+    vantaraProjects.filter(
+      (project) =>
+        project.name
+          .toLowerCase()
+          .includes(query)
+    );
+
+  if (!filtered.length) {
+
+    box.innerHTML =
+      `<div class="empty-state">
+        No projects found.
+       </div>`;
+
+    updateProjectCount();
+
+    return;
+  }
+
+  box.innerHTML =
+    filtered
+      .map(
+        (project) => `
+
+        <div
+          class="project-card"
+          data-project="${project.id}"
+        >
+
+          <div>
+            <h3>
+              ${escapeHTML(
+                project.name
+              )}
+            </h3>
+
+            <small>
+              ${escapeHTML(
+                project.created
+              )}
+            </small>
+          </div>
+
+          <div class="project-actions">
+
+            <button
+              class="small-btn"
+              data-open-project="${project.id}">
+              Open
+            </button>
+
+            <button
+              class="small-btn"
+              data-delete-project="${project.id}">
+              Delete
+            </button>
+
+          </div>
+
+        </div>
+      `
+      )
+      .join("");
+
+  /* Open project */
+
+  box
+    .querySelectorAll(
+      "[data-open-project]"
+    )
+    .forEach(
+      (button) => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const id =
+              Number(
+                button.dataset
+                  .openProject
+              );
+
+            openProject(id);
+          }
+        );
+      }
+    );
+
+  /* Delete project */
+
+  box
+    .querySelectorAll(
+      "[data-delete-project]"
+    )
+    .forEach(
+      (button) => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const id =
+              Number(
+                button.dataset
+                  .deleteProject
+              );
+
+            deleteProject(id);
+          }
+        );
+      }
+    );
+
+  updateProjectCount();
+}
 
 
-/* =========================================================
-   FINAL STARTUP
-========================================================= */
+/* Open project */
+
+function openProject(id) {
+
+  const project =
+    vantaraProjects.find(
+      (item) =>
+        item.id === id
+    );
+
+  if (!project) return;
+
+  lessonSlides =
+    project.lesson || [];
+
+  renderLessonSlides();
+
+  if ($("projectStatus")) {
+
+    status(
+      "projectStatus",
+      `Opened "${project.name}".`,
+      "success"
+    );
+  }
+
+  document
+    .querySelector(
+      '[data-tab="lesson"]'
+    )
+    ?.click();
+}
+
+
+/* Delete project */
+
+function deleteProject(id) {
+
+  const project =
+    vantaraProjects.find(
+      (item) =>
+        item.id === id
+    );
+
+  if (!project) return;
+
+  const confirmed =
+    window.confirm(
+      `Delete "${project.name}"?`
+    );
+
+  if (!confirmed) return;
+
+  vantaraProjects =
+    vantaraProjects.filter(
+      (item) =>
+        item.id !== id
+    );
+
+  localStorage.setItem(
+    "vantaraProjects",
+    JSON.stringify(
+      vantaraProjects
+    )
+  );
+
+  renderProjects();
+
+  status(
+    "projectStatus",
+    "Project deleted."
+  );
+}
+
+
+/* Search */
+
+$("projectSearch")?.addEventListener(
+  "input",
+  () => {
+
+    renderProjects(
+      $("projectSearch").value
+    );
+  }
+);
+
+
+/* Dashboard count */
+
+function updateProjectCount() {
+
+  const count =
+    $("projectCount");
+
+  if (count) {
+
+    count.textContent =
+      vantaraProjects.length;
+  }
+}
+
+
+/* Initial library */
+
+renderProjects();
+
+updateProjectCount();
 
 console.log(
-  "VANTARA EDITOR V2 loaded successfully."
+  "VANTARA Brand Kit + Project Library loaded."
+);
+/* ================================
+   SCRIPT ASSISTANT
+   NO API KEY
+================================ */
+
+let assistantOriginalText = "";
+
+/* Generate classroom-style script */
+
+function generateAssistantScript(
+  text,
+  action
+) {
+
+  const clean =
+    text.trim();
+
+  if (!clean) return "";
+
+  switch (action) {
+
+    case "simple":
+
+      return `Let's understand this topic in a simple way.
+
+${clean}
+
+The main idea to remember is this: understand the concept first, and then apply it to the problem.`;
+
+    case "classroom":
+
+      return `Students, let's understand this topic step by step.
+
+${clean}
+
+Take a moment to think about the concept. Don't focus only on the final answer. Try to understand why the method works.
+
+Once the concept is clear, solving questions becomes much easier.`;
+
+    case "hinglish":
+
+      return `Students, chaliye is concept ko very simple way mein samajhte hain.
+
+${clean}
+
+Sabse important baat ye hai ki hum sirf answer yaad nahi karenge. Hum ye samjhenge ki concept actually work kaise karta hai.
+
+Once the concept is clear, questions solve karna much easier ho jata hai.`;
+
+    case "short":
+
+      return `Students, remember the key idea:
+
+${clean}
+
+Understand the concept first, then solve the problem.`;
+
+    case "pause":
+
+      return `Students, let's pause here for a moment.
+
+${clean}
+
+Ab ek baar is concept ko mentally recall kijiye.
+
+Think about it, and then let's move ahead.`;
+
+    default:
+
+      return clean;
+  }
+}
+
+
+/* Assistant buttons */
+
+document
+  .querySelectorAll(
+    "[data-action]"
+  )
+  .forEach(
+    (button) => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const input =
+            $("assistantInput");
+
+          if (!input) return;
+
+          const text =
+            input.value.trim();
+
+          if (!text) {
+
+            status(
+              "assistantStatus",
+              "Enter some text first.",
+              "error"
+            );
+
+            return;
+          }
+
+          assistantOriginalText =
+            text;
+
+          const action =
+            button.dataset.action;
+
+          const result =
+            generateAssistantScript(
+              text,
+              action
+            );
+
+          if ($("assistantOutput")) {
+
+            $("assistantOutput").value =
+              result;
+          }
+
+          status(
+            "assistantStatus",
+            "Script generated successfully.",
+            "success"
+          );
+        }
+      );
+    }
+  );
+
+
+/* Use generated script */
+
+$("useAssistant")?.addEventListener(
+  "click",
+  () => {
+
+    const output =
+      $("assistantOutput")?.value
+        .trim();
+
+    if (!output) {
+
+      status(
+        "assistantStatus",
+        "Generate a script first.",
+        "error"
+      );
+
+      return;
+    }
+
+    if ($("script")) {
+
+      $("script").value =
+        output;
+
+      $("script").dispatchEvent(
+        new Event("input")
+      );
+    }
+
+    status(
+      "assistantStatus",
+      "Script sent to Voiceover Studio.",
+      "success"
+    );
+
+    document
+      .querySelector(
+        '[data-tab="voiceover"]'
+      )
+      ?.click();
+  }
+);
+
+
+/* Copy script */
+
+$("copyAssistant")?.addEventListener(
+  "click",
+  async () => {
+
+    const output =
+      $("assistantOutput")?.value ||
+      "";
+
+    if (!output) {
+
+      status(
+        "assistantStatus",
+        "Nothing to copy.",
+        "error"
+      );
+
+      return;
+    }
+
+    try {
+
+      await navigator.clipboard
+        .writeText(output);
+
+      status(
+        "assistantStatus",
+        "Script copied.",
+        "success"
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      status(
+        "assistantStatus",
+        "Copy failed. Please copy manually."
+      );
+    }
+  }
+);
+
+
+/* Clear assistant */
+
+$("clearAssistant")?.addEventListener(
+  "click",
+  () => {
+
+    if ($("assistantInput"))
+      $("assistantInput").value = "";
+
+    if ($("assistantOutput"))
+      $("assistantOutput").value = "";
+
+    assistantOriginalText =
+      "";
+
+    status(
+      "assistantStatus",
+      "Assistant cleared."
+    );
+  }
+);
+
+
+/* Character counter */
+
+$("assistantInput")?.addEventListener(
+  "input",
+  () => {
+
+    const count =
+      $("assistantInput")
+        .value.length;
+
+    if ($("assistantCount")) {
+
+      $("assistantCount")
+        .textContent =
+        `${count} characters`;
+    }
+  }
+);
+
+console.log(
+  "VANTARA Script Assistant loaded."
+);
+/* ================================
+   VIDEO CREATOR
+   BROWSER ONLY
+================================ */
+
+let videoImages = [];
+let videoExportStopped = false;
+
+/* Image selection */
+
+$("videoImages")?.addEventListener(
+  "change",
+  () => {
+
+    videoImages =
+      Array.from(
+        $("videoImages").files || []
+      );
+
+    renderVideoSlides();
+
+    status(
+      "videoExportStatus",
+      `${videoImages.length} image(s) selected.`
+    );
+  }
+);
+
+
+/* Render image list */
+
+function renderVideoSlides() {
+
+  const box =
+    $("videoSlides");
+
+  if (!box) return;
+
+  if (!videoImages.length) {
+
+    box.innerHTML =
+      `<div class="empty-state">
+        No images selected.
+       </div>`;
+
+    return;
+  }
+
+  box.innerHTML =
+    videoImages
+      .map(
+        (file, index) => `
+
+        <div class="video-slide">
+
+          <span>
+            ${index + 1}.
+            ${escapeHTML(file.name)}
+          </span>
+
+          <button
+            class="small-btn"
+            data-remove-video="${index}">
+            Remove
+          </button>
+
+        </div>
+      `
+      )
+      .join("");
+
+  box
+    .querySelectorAll(
+      "[data-remove-video]"
+    )
+    .forEach(
+      (button) => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            const index =
+              Number(
+                button.dataset
+                  .removeVideo
+              );
+
+            videoImages.splice(
+              index,
+              1
+            );
+
+            renderVideoSlides();
+          }
+        );
+      }
+    );
+}
+
+
+/* Clear images */
+
+$("clearVideo")?.addEventListener(
+  "click",
+  () => {
+
+    videoImages = [];
+
+    if ($("videoImages")) {
+      $("videoImages").value = "";
+    }
+
+    renderVideoSlides();
+
+    status(
+      "videoExportStatus",
+      "Video images cleared."
+    );
+  }
+);
+
+
+/* Template controls */
+
+$("videoTemplate")?.addEventListener(
+  "change",
+  () => {
+
+    const template =
+      $("videoTemplate").value;
+
+    if ($("videoTemplatePanel")) {
+
+      $("videoTemplatePanel")
+        .dataset.template =
+        template;
+    }
+  }
+);
+
+
+/* Enable / disable title */
+
+$("videoTitleEnabled")?.addEventListener(
+  "change",
+  () => {
+
+    const title =
+      $("videoTitle");
+
+    if (title) {
+
+      title.disabled =
+        !$("videoTitleEnabled")
+          .checked;
+    }
+  }
+);
+
+
+/* Enable / disable ending */
+
+$("videoEndingEnabled")?.addEventListener(
+  "change",
+  () => {
+
+    const ending =
+      $("videoEndingText");
+
+    if (ending) {
+
+      ending.disabled =
+        !$("videoEndingEnabled")
+          .checked;
+    }
+  }
+);
+
+
+/* Duration display */
+
+$("videoDuration")?.addEventListener(
+  "input",
+  () => {
+
+    if ($("videoDurationValue")) {
+
+      $("videoDurationValue")
+        .textContent =
+        `${$("videoDuration").value}s`;
+    }
+  }
+);
+
+
+/* Browser video preview */
+
+async function createVideoPreview() {
+
+  const canvas =
+    $("videoCanvas");
+
+  if (!canvas) return;
+
+  const ctx =
+    canvas.getContext("2d");
+
+  const duration =
+    Number(
+      $("videoDuration")?.value ||
+      3
+    );
+
+  const title =
+    $("videoTitle")?.value ||
+    "VANTARA EDUCATION";
+
+  const subtitle =
+    $("videoSubtitle")?.value ||
+    "";
+
+  canvas.width =
+    1280;
+
+  canvas.height =
+    720;
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  /* Background */
+
+  ctx.fillStyle =
+    "#050505";
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  /* Title */
+
+  ctx.textAlign =
+    "center";
+
+  ctx.fillStyle =
+    "#ffffff";
+
+  ctx.font =
+    "bold 64px Arial";
+
+  ctx.fillText(
+    title,
+    canvas.width / 2,
+    310
+  );
+
+  /* Subtitle */
+
+  if (subtitle) {
+
+    ctx.font =
+      "32px Arial";
+
+    ctx.fillText(
+      subtitle,
+      canvas.width / 2,
+      375
+    );
+  }
+
+  /* Footer */
+
+  ctx.font =
+    "24px Arial";
+
+  ctx.fillText(
+    "VANTARA EDUCATION",
+    canvas.width / 2,
+    650
+  );
+
+  canvas.hidden =
+    false;
+
+  status(
+    "videoExportStatus",
+    `Preview created for ${duration} seconds.`,
+    "success"
+  );
+}
+
+
+/* Export / preview button */
+
+$("exportVideo")?.addEventListener(
+  "click",
+  async () => {
+
+    if (!videoImages.length) {
+
+      await createVideoPreview();
+
+      status(
+        "videoExportStatus",
+        "Add images to create a full video. A title preview has been created."
+      );
+
+      return;
+    }
+
+    /*
+      Full MP4 export requires a video encoder.
+      This browser-only V1/V2 version creates
+      a preview without requiring an API key.
+    */
+
+    await createVideoPreview();
+
+    status(
+      "videoExportStatus",
+      "Video preview created. Full MP4 export will be added in a future version.",
+      "success"
+    );
+  }
+);
+
+
+/* Stop export */
+
+$("stopVideoExport")?.addEventListener(
+  "click",
+  () => {
+
+    videoExportStopped =
+      true;
+
+    status(
+      "videoExportStatus",
+      "Video export stopped."
+    );
+  }
+);
+
+
+/* ================================
+   DASHBOARD CONNECTIONS
+================================ */
+
+function updateDashboard() {
+
+  /* Project count */
+
+  if ($("projectCount")) {
+
+    $("projectCount")
+      .textContent =
+      vantaraProjects.length;
+  }
+
+  /* Character count */
+
+  if (
+    $("characterCount") &&
+    $("script")
+  ) {
+
+    $("characterCount")
+      .textContent =
+      $("script")
+        .value.length;
+  }
+
+  /* Recent projects */
+
+  const recent =
+    $("recentProjects");
+
+  if (!recent) return;
+
+  if (!vantaraProjects.length) {
+
+    recent.innerHTML =
+      `<div class="empty-state">
+        No recent projects.
+       </div>`;
+
+    return;
+  }
+
+  recent.innerHTML =
+    vantaraProjects
+      .slice(0, 5)
+      .map(
+        (project) => `
+          <div class="recent-project">
+
+            <strong>
+              ${escapeHTML(
+                project.name
+              )}
+            </strong>
+
+            <small>
+              ${escapeHTML(
+                project.created
+              )}
+            </small>
+
+          </div>
+        `
+      )
+      .join("");
+}
+
+
+/* Refresh dashboard periodically */
+
+setInterval(
+  updateDashboard,
+  1000
+);
+
+updateDashboard();
+
+renderVideoSlides();
+
+console.log(
+  "VANTARA Video Creator + Dashboard loaded."
+);
+
+
+/* ================================
+   FINAL APP STATUS
+================================ */
+
+console.log(
+  "================================"
+);
+
+console.log(
+  "VANTARA EDITOR V2 READY"
+);
+
+console.log(
+  "No API key required for browser tools."
+);
+
+console.log(
+  "Voiceover • Lesson Builder • Audio Editor"
+);
+
+console.log(
+  "Audio Merge • Brand Kit • Script Assistant"
+);
+
+console.log(
+  "Video Preview • Project Library"
+);
+
+console.log(
+  "================================"
 );
