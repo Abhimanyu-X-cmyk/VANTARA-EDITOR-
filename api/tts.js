@@ -934,3 +934,284 @@ $("voiceDownload")?.addEventListener(
 console.log(
   "VANTARA WAV converter loaded."
 );
+/* =================================
+   PART 5 — FINAL DOWNLOAD CONNECTION
+================================= */
+
+async function generateRealVoiceover() {
+
+  const script = $("script");
+  const button = $("generate");
+
+  if (!script) return;
+
+  const text = script.value.trim();
+
+  if (!text) {
+    setStatus(
+      "voiceStatus",
+      "Please enter your script first.",
+      "error"
+    );
+    return;
+  }
+
+  const chunks = splitForTTS(text);
+
+  if (!chunks.length) {
+    setStatus(
+      "voiceStatus",
+      "No usable text found.",
+      "error"
+    );
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Generating...";
+  }
+
+  try {
+
+    const audioBuffers = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+
+      setStatus(
+        "voiceStatus",
+        `Generating part ${i + 1} of ${chunks.length}...`
+      );
+
+      const response = await fetch("/api/tts", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          text: chunks[i],
+          language_code:
+            $("language")?.value || "hi-IN",
+          speaker:
+            $("speaker")?.value || "shubh",
+          pace:
+            Number($("pace")?.value || 1)
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+          `Part ${i + 1} failed`
+        );
+      }
+
+      if (!data.audio) {
+        throw new Error(
+          `No audio returned for part ${i + 1}`
+        );
+      }
+
+      const binary =
+        atob(data.audio);
+
+      const bytes =
+        new Uint8Array(binary.length);
+
+      for (let j = 0; j < binary.length; j++) {
+        bytes[j] =
+          binary.charCodeAt(j);
+      }
+
+      const arrayBuffer =
+        bytes.buffer;
+
+      const context =
+        new (
+          window.AudioContext ||
+          window.webkitAudioContext
+        )();
+
+      const audioBuffer =
+        await context.decodeAudioData(
+          arrayBuffer
+        );
+
+      audioBuffers.push(audioBuffer);
+
+      await context.close();
+    }
+
+
+    /* ===============================
+       COMBINE AUDIO
+    =============================== */
+
+    setStatus(
+      "voiceStatus",
+      "Combining voiceover parts..."
+    );
+
+    const first =
+      audioBuffers[0];
+
+    const channels =
+      first.numberOfChannels;
+
+    const sampleRate =
+      first.sampleRate;
+
+    let totalLength = 0;
+
+    audioBuffers.forEach(
+      buffer => {
+        totalLength += buffer.length;
+      }
+    );
+
+    const context =
+      new (
+        window.AudioContext ||
+        window.webkitAudioContext
+      )();
+
+    const finalBuffer =
+      context.createBuffer(
+        channels,
+        totalLength,
+        sampleRate
+      );
+
+    let offset = 0;
+
+    for (const buffer of audioBuffers) {
+
+      for (
+        let channel = 0;
+        channel < channels;
+        channel++
+      ) {
+
+        finalBuffer
+          .getChannelData(channel)
+          .set(
+            buffer.getChannelData(
+              Math.min(
+                channel,
+                buffer.numberOfChannels - 1
+              )
+            ),
+            offset
+          );
+      }
+
+      offset += buffer.length;
+    }
+
+
+    /* ===============================
+       CREATE WAV
+    =============================== */
+
+    const wavBlob =
+      audioBufferToWav(
+        finalBuffer
+      );
+
+    await context.close();
+
+
+    /* ===============================
+       CREATE DOWNLOAD
+    =============================== */
+
+    const downloadURL =
+      URL.createObjectURL(
+        wavBlob
+      );
+
+    const audio =
+      $("voiceAudio");
+
+    const download =
+      $("voiceDownload");
+
+    if (audio) {
+
+      audio.pause();
+
+      audio.src =
+        downloadURL;
+
+      audio.hidden =
+        false;
+
+      audio.load();
+    }
+
+    if (download) {
+
+      download.href =
+        downloadURL;
+
+      download.download =
+        "VANTARA-Voiceover.wav";
+
+      download.textContent =
+        "⬇ Download Voiceover";
+
+      download.hidden =
+        false;
+
+      download.style.display =
+        "inline-block";
+    }
+
+
+    setStatus(
+      "voiceStatus",
+      "Voiceover completed. Tap Download Voiceover.",
+      "success"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "VANTARA Voiceover:",
+      error
+    );
+
+    setStatus(
+      "voiceStatus",
+      error.message ||
+      "Voiceover generation failed.",
+      "error"
+    );
+
+  } finally {
+
+    if (button) {
+      button.disabled = false;
+      button.textContent =
+        "Generate Voiceover";
+    }
+  }
+}
+
+
+/* IMPORTANT:
+   Keep ONLY this Generate listener.
+*/
+
+$("generate")?.addEventListener(
+  "click",
+  generateRealVoiceover
+);
+
+console.log(
+  "VANTARA final voiceover system ready."
+);
