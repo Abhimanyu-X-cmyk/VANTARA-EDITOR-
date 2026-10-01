@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VANTARA EDITOR — OpenAI Voiceover</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">V</div><div><b>VANTARA EDITOR</b><small>Voiceover • Audio • Creator Studio</small></div></div>
+  <span>OpenAI TTS</span>
+</header>
+<main>
+<section class="hero">
+  <small>VANTARA EDUCATION</small>
+  <h1>Real downloadable teacher voiceovers.</h1>
+  <p>Generate voiceovers with OpenAI TTS and download one WAV file.</p>
+</section>
+<nav><button class="tab active" data-tab="voiceover">🎙️ Voiceover Studio</button></nav>
+
+<section id="voiceover" class="panel active">
+<h2>Voiceover Studio</h2>
+<p>Paste your complete classroom script below.</p>
+<label>Script</label>
+<textarea id="script" placeholder="Paste your teacher script here..."></textarea>
+<div class="count"><span></span><span id="count">0 characters</span></div>
+
+<div class="grid">
+<div><label>Language</label><select id="language">
+<option value="Hindi / Hinglish">Hindi / Hinglish</option>
+<option value="English">English</option>
+</select></div>
+<div><label>OpenAI voice</label><select id="voice">
+<option value="coral">Coral</option><option value="alloy">Alloy</option>
+<option value="ash">Ash</option><option value="ballad">Ballad</option>
+<option value="echo">Echo</option><option value="fable">Fable</option>
+<option value="nova">Nova</option><option value="onyx">Onyx</option>
+<option value="sage">Sage</option><option value="shimmer">Shimmer</option>
+</select></div>
+<div><label>Speed</label><select id="speed">
+<option value="0.85">Slow classroom</option>
+<option value="1" selected>Normal classroom</option>
+<option value="1.1">Slightly fast</option>
+</select></div>
+</div>
+
+<label style="display:block;margin-top:14px">Voice instructions</label>
+<textarea id="instructions" style="min-height:110px" placeholder="Warm, clear classroom teacher voice. Calm, natural pacing, friendly and confident."></textarea>
+
+<button id="generate" class="primary">Generate Real Voiceover</button>
+<div id="voiceStatus" class="status"></div>
+<div id="chunkStatus" class="status"></div>
+<audio id="voiceAudio" controls hidden></audio>
+<a id="voiceDownload" class="download" hidden>⬇ Download VANTARA Voiceover</a>
+</section>
+</main>
+<footer>VANTARA EDUCATION • VANTARA EDITOR</footer>
+<script src="app.js"></script>
+</body>
+</html>
